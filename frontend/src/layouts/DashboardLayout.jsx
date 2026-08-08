@@ -1,5 +1,11 @@
+import { Outlet } from "react-router-dom";
+
 function DashboardLayout() {
-  return <div>Dashboard Layout</div>;
+  return (
+    <div className="min-h-screen bg-slate-50">
+      <Outlet />
+    </div>
+  );
 }
 
 export default DashboardLayout;

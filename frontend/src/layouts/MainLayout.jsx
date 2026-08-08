@@ -1,5 +1,11 @@
+import { Outlet } from "react-router-dom";
+
 function MainLayout() {
-  return <div>Main Layout</div>;
+  return (
+    <div className="min-h-screen bg-slate-50">
+      <Outlet />
+    </div>
+  );
 }
 
 export default MainLayout;

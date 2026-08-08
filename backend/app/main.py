@@ -1,23 +1,45 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI()
+from app.api.routes.papers import router as papers_router
 
-# Allow React Frontend to communicate with FastAPI
-origins = [
-    "http://localhost:5173"
-]
 
+app = FastAPI(
+    title="ResearchFlow AI API",
+    description="AI-powered research paper analysis backend",
+    version="1.0.0"
+)
+
+
+# CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=[
+        "http://localhost:5173"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+
+# Root endpoint
 @app.get("/")
-def home():
+def root():
     return {
-        "message": "Welcome to ResearchFlow AI"
+        "status": "ok",
+        "message": "ResearchFlow AI backend is running"
     }
+
+
+# Health check
+@app.get("/api/health")
+def health_check():
+    return {
+        "status": "healthy",
+        "service": "ResearchFlow AI"
+    }
+
+
+# Paper routes
+app.include_router(papers_router)

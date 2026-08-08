@@ -1,185 +1,198 @@
-# ResearchFlow AI - Project Master Tracker
+ResearchFlow AI - Project Master Tracker
 
-## Project Information
+Project Information
 
-**Project Name:** ResearchFlow AI
+Project Name: ResearchFlow AI
 
-**Description:**
-AI-powered Research Paper Analysis & Literature Review Platform built using React, FastAPI, Supabase, PostgreSQL, and Google Gemini AI.
+Description: AI-powered Research Paper Analysis & Literature Review Platform built using React, FastAPI, Supabase, PostgreSQL, and Google Gemini AI.
 
----
+Current Status
 
-# Current Status
+Current Milestone: Milestone 7 - Gemini AI Integration Completed
 
-Current Milestone:
-✅ Milestone 4 Setup Completed
+Current Working Pipeline: PDF Upload → FastAPI → PyMuPDF → Gemini → Structured AI Analysis
 
-Project Progress:
-Approximately 15%
+Project Progress: Approximately 35% (working core pipeline completed; database, frontend integration, authentication, advanced features, testing and deployment remain)
 
----
+Completed Milestones
 
-# Completed Milestones
+Phase 0 - Planning
 
-## Phase 0 - Planning
+Project finalized
 
-- Project finalized
-- Features finalized
-- Tech stack finalized
-- Folder structure planned
-- System architecture planned
+Features finalized
 
----
+Tech stack finalized
 
-## Phase 1 - Environment Setup
+Folder structure planned
 
-Completed
+System architecture planned
 
-- Created project folder
-- Configured .gitignore
-- Installed Python
-- Installed Node.js
-- Installed VS Code
-- Created frontend folder
-- Created backend folder
-- Created docs folder
-- Created screenshots folder
+Phase 1 - Environment Setup
 
----
+Created project folder
 
-## Phase 2 - React Setup
+Configured .gitignore
 
-Completed
+Installed Python
 
-- React installed using Vite
-- JavaScript selected
-- ESLint selected
-- Axios installed
+Installed Node.js
 
----
+Installed VS Code
 
-## Phase 3 - FastAPI Setup
+Created frontend, backend, docs and screenshots folders
 
-Completed
+Phase 2 - React Setup
 
-- Virtual environment created
-- FastAPI installed
-- Uvicorn installed
-- requirements.txt generated
+React installed using Vite
 
-Backend structure created
+JavaScript selected
 
-app/
-├── api/
+Axios installed
+
+React Router DOM installed
+
+Phase 3 - FastAPI Setup
+
+Virtual environment created
+
+FastAPI installed
+
+Uvicorn installed
+
+requirements.txt generated
+
+Structured app folders created
+
+Phase 4 - Frontend ↔ Backend Connection
+
+Created first FastAPI API
+
+Tested API
+
+Enabled CORS
+
+Installed Axios
+
+Created services/api.js
+
+React successfully communicates with FastAPI
+
+Phase 5 - Frontend Architecture & Routing
+
+Created components, layouts, context, hooks, routes and utils folders
+
+Created Landing/Home, Login, Register, Dashboard, Papers, Analysis, Workspace and Compare pages
+
+Created MainLayout, AuthLayout and DashboardLayout
+
+Implemented AppRoutes and BrowserRouter
+
+Verified routes successfully
+
+Phase 6 - PDF Processing
+
+Installed PyMuPDF
+
+Installed python-multipart
+
+Created pdf_service.py
+
+Created papers API route
+
+Implemented PDF validation and upload
+
+Implemented page-wise and full-text extraction
+
+Tested successfully through Swagger
+
+Phase 7 - Gemini AI Integration
+
+Created backend .env for Gemini API key
+
+Installed google-genai and python-dotenv
+
+Created paper_analysis.py Pydantic schema
+
+Created ai_service.py
+
+Integrated Gemini with FastAPI
+
+Implemented structured research-paper analysis
+
+Tested successfully through Swagger
+
+Installed Packages
+
+Frontend
+
+React
+
+Vite
+
+Axios
+
+React Router DOM
+
+Backend
+
+FastAPI
+
+Uvicorn
+
+PyMuPDF
+
+python-multipart
+
+google-genai
+
+python-dotenv
+
+Pending / Planned Packages
+
+Frontend
+
+Tailwind CSS / UI dependencies as required by the existing frontend
+
+Backend
+
+SQLAlchemy
+
+Alembic
+
+PostgreSQL driver
+
+Supabase integration
+
+Current Backend Structure
+
+backend/app/
+├── api/routes/papers.py
 ├── core/
 ├── db/
 ├── models/
-├── schemas/
-├── services/
+├── schemas/paper_analysis.py
+├── services/pdf_service.py
+├── services/ai_service.py
 ├── utils/
 └── main.py
 
----
+Next Milestone
 
-## Phase 4 - Frontend ↔ Backend Connection
+Milestone 8 - Database Persistence
 
-Completed
+Create Supabase project/database
 
-- Created first FastAPI API
-- Tested API
-- Enabled CORS
-- Installed Axios
-- Created api.js
-- React successfully communicates with FastAPI
-- Displayed backend response inside React
+Configure database environment variables
 
----
+Install SQLAlchemy and PostgreSQL driver
 
-## Phase 5 - Frontend Architecture Setup
+Create database configuration
 
-Completed
+Create Paper model
 
-Installed
+Create database table
 
-- React Router DOM
+Save Gemini analysis results
 
-Created folders
-
-- components
-- layouts
-- context
-- hooks
-- routes
-- utils
-
-Created Pages
-
-- Landing
-- Login
-- Register
-- Dashboard
-
-Created Layouts
-
-- MainLayout
-- AuthLayout
-- DashboardLayout
-
-Created
-
-routes/AppRoutes.jsx
-
-Routing logic
-Not Started
-
----
-
-# Installed Packages
-
-Frontend
-
-- React
-- Vite
-- Axios
-- React Router DOM
-
-Backend
-
-- FastAPI
-- Uvicorn
-
----
-
-# Pending Packages
-
-Frontend
-
-- Tailwind CSS
-- Lucide React
-
-Backend
-
-- SQLAlchemy
-- Alembic
-- PyMuPDF
-- Google Gemini SDK
-- Supabase SDK
-
----
-
-# Next Milestone
-
-Milestone 5
-
-React Routing
-
-- Create AppRoutes
-- Configure BrowserRouter
-- Navigation
-- Landing Page
-- Login Page
-- Register Page
-- Dashboard Route
-
-Status:
-Ready to Start
+Test saved papers in Supabase
