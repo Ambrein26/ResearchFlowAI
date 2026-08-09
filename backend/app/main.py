@@ -2,6 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.papers import router as papers_router
+from app.db.database import Base, engine
+from app.models.paper import Paper
 
 
 app = FastAPI(
@@ -11,7 +13,6 @@ app = FastAPI(
 )
 
 
-# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -23,7 +24,9 @@ app.add_middleware(
 )
 
 
-# Root endpoint
+Base.metadata.create_all(bind=engine)
+
+
 @app.get("/")
 def root():
     return {
@@ -32,7 +35,6 @@ def root():
     }
 
 
-# Health check
 @app.get("/api/health")
 def health_check():
     return {
@@ -41,5 +43,4 @@ def health_check():
     }
 
 
-# Paper routes
 app.include_router(papers_router)

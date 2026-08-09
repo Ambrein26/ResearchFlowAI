@@ -1,40 +1,46 @@
-ResearchFlow AI - Development Journal
+ResearchFlow AI — Development Journal
 
-Day 1
+Updated with today's completed work and current checkpoint
+
+Project
+
+ResearchFlow AI — AI-powered Research Paper Analysis & Literature Review Platform
+
+Day 1 — Planning & Project Setup
 
 Completed
 
 Planned the complete project
 
-Finalized technology stack
+Finalized the technology stack
 
-Created project structure
+Created the project structure
 
 Configured .gitignore
 
 Learned
 
-Importance of project planning
+Project planning
 
 Folder organization
 
-Git ignore usage
+Git and .gitignore
 
-Day 2
+Day 2 — React & FastAPI Setup
 
 Completed
 
-Installed React
+Installed React using Vite
 
-Installed FastAPI
+Installed FastAPI and Uvicorn
 
-Created backend structure
+Created the backend structure
 
-Created first FastAPI application
+Created the first FastAPI application
 
-Created first API endpoint
+Created the first API endpoint
 
-Ran backend server
+Ran the backend server
 
 Explored Swagger documentation
 
@@ -42,15 +48,13 @@ Learned
 
 FastAPI
 
-API
+REST APIs
 
 JSON
 
-HTTP Request
+HTTP requests and responses
 
-HTTP Response
-
-Day 3
+Day 3 — Frontend ↔ Backend Connection
 
 Completed
 
@@ -58,11 +62,11 @@ Enabled CORS
 
 Installed Axios
 
+Created the frontend API service
+
 Connected React with FastAPI
 
-Created services/api.js
-
-Displayed backend response on React
+Displayed the backend response in React
 
 Learned
 
@@ -72,154 +76,252 @@ useState
 
 useEffect
 
-Frontend Backend Communication
+Frontend-backend communication
 
-Day 4
+CORS
+
+Day 4 — Frontend Architecture & Routing
 
 Completed
 
 Installed React Router DOM
 
-Created professional frontend folder structure
+Created professional frontend folders
 
-Created page components
-
-Created layout components
+Created pages and layouts
 
 Created AppRoutes
 
 Configured BrowserRouter
 
-Verified application routes
+Fixed Vite import/path errors
+
+Verified application navigation
 
 Learned
 
-Project architecture
-
-Layouts
+React Router
 
 Pages
 
+Layouts
+
 Components
 
-Why routing is needed
+Route configuration
 
-Day 5
+Debugging import paths
 
-Completed
-
-Completed frontend route setup and testing
-
-Verified Landing/Home, Login, Register, Dashboard, Papers, Analysis, Workspace, and Compare routes
-
-Resolved frontend import/path issues
-
-Verified the application renders correctly after routing changes
-
-Learned
-
-React Router route nesting
-
-Layout-based routing
-
-Debugging Vite import errors
-
-Importance of consistent component paths
-
-Day 6
+Day 5 — Paper Upload & PDF Processing
 
 Completed
 
-Installed PyMuPDF
+Created Upload Paper modal
 
-Installed python-multipart
+Connected paper upload UI to FastAPI
 
-Created PDF processing service
+Added PDF validation
 
-Created paper API route
+Implemented PDF text extraction using PyMuPDF
 
-Implemented PDF upload validation
+Added page-count and extracted-text handling
 
-Implemented PDF text extraction
-
-Implemented page-wise text extraction
-
-Tested PDF extraction successfully through Swagger
+Tested PDF extraction through Swagger
 
 Learned
 
-FastAPI file uploads
+Multipart uploads
 
-Multipart form data
+UploadFile
 
 PyMuPDF
 
-PDF text extraction
+PDF processing
 
-API service separation
+FastAPI service separation
 
-Day 7
+Day 6 — Gemini AI Analysis
 
 Completed
 
-Created backend .env for the Gemini API key
+Configured Gemini API access using environment variables
 
-Installed google-genai and python-dotenv
+Installed the Gemini SDK and dotenv support
 
-Created Pydantic paper analysis schema
+Created the AI analysis service
 
-Created Gemini AI service
+Created a structured Pydantic analysis schema
 
-Integrated Gemini with FastAPI
+Connected extracted PDF text to Gemini
 
-Implemented structured AI output
+Implemented research-paper analysis
 
-Added research-paper analysis endpoint
+Resolved the unavailable gemini-2.5-flash model error by switching to an available model
 
-Tested PDF-to-Gemini analysis successfully
-
-Resolved the unavailable Gemini model issue by updating the configured model
-
-AI analysis currently generates
-
-Title
-
-Authors
-
-TL;DR
-
-Summary
-
-Keywords
-
-Research problem
-
-Key contributions
-
-Methodology
-
-Dataset
-
-Models/algorithms
-
-Key findings
-
-Limitations
-
-Future work
+Verified AI analysis successfully
 
 Learned
 
 Gemini API integration
 
-Environment variables and API-key security
+API-key security
 
 Pydantic structured output
 
-LLM service architecture
+Prompt/service design
 
-PDF-to-AI processing pipeline
+AI error handling
 
-Current Next Goal
+Day 7 — Database Persistence
 
-Implement Supabase PostgreSQL persistence using SQLAlchemy, create the Paper database model, and save AI analysis results.
+Completed
+
+Configured PostgreSQL/Supabase database connection
+
+Configured SQLAlchemy
+
+Created the Paper database model
+
+Created the database table
+
+Connected the analyze endpoint to the database
+
+Saved analyzed paper metadata and AI results
+
+Added commit, refresh and rollback handling
+
+Verified that a paper was saved successfully
+
+Learned
+
+SQLAlchemy ORM
+
+PostgreSQL/Supabase
+
+Database models
+
+Transactions
+
+Rollback and persistence
+
+Day 8 — Paper Management
+
+Completed
+
+Implemented GET /api/papers
+
+Connected the Papers page to the backend
+
+Replaced temporary hardcoded paper data with database data
+
+Added paper search
+
+Displayed title, authors, date and page count
+
+Implemented delete paper functionality
+
+Refreshed the Papers page after upload/delete
+
+Verified delete works
+
+Learned
+
+REST GET endpoints
+
+Dynamic React state
+
+API-driven UI
+
+Delete operations
+
+Frontend refresh workflow
+
+Day 9 — Dynamic Paper Analysis
+
+Completed
+
+Implemented and tested GET /api/papers/{paper_id}
+
+Confirmed dynamic route /analysis/:paperId
+
+Updated Analysis.jsx to use useParams
+
+Removed hardcoded analysis content
+
+Fetched the selected paper from FastAPI
+
+Added loading state
+
+Added error state
+
+Added safe handling for strings and arrays
+
+Displayed TL;DR, summary, contributions, methodology, dataset, model, findings, limitations, future work and keywords from the database
+
+Added print/export action
+
+Verified that a real paper UUID opens its actual analysis page
+
+Fixed blank/loading analysis-page issues
+
+Learned
+
+useParams
+
+Dynamic routing
+
+API-driven analysis pages
+
+Loading/error states
+
+Defensive data normalization
+
+Day 10 — Dashboard & Route Stabilization
+
+Completed
+
+Verified the Dashboard displays correctly
+
+Verified Papers → View Analysis navigation
+
+Verified real paper analysis URLs
+
+Resolved route/component import issues for Profile and other pages
+
+Resolved Workspace loading issue
+
+Confirmed /compare, /workspace and /settings render without hanging
+
+Confirmed delete operation continues to work
+
+Established the current stable checkpoint before continuing the Research Workspace
+
+Learned
+
+Route debugging
+
+Component path consistency
+
+Navigation flow
+
+Stable project checkpoint
+
+Current Working Workflow
+
+Dashboard → Papers → Upload Paper → FastAPI PDF Processing → Gemini Analysis → PostgreSQL/Supabase Save → Papers List → View Analysis → Dynamic Analysis/{paperId}.
+
+The paper shown in the Analysis page is now loaded from the database using the real paper ID; the Analysis page is no longer based on hardcoded sample data.
+
+Current Checkpoint
+
+The upload, AI analysis, database persistence, paper listing, search, delete, dynamic paper retrieval and dynamic analysis workflow are working. The project is ready to continue with the Research Workspace.
+
+Next Goal
+
+Build the Research Workspace around a selected paper.
+
+Connect Workspace data to the backend/database.
+
+Then implement paper comparison and literature-review functionality.
+
+Continue with notes, bookmarks, search, contextual AI, profile/authentication, testing, deployment and documentation.

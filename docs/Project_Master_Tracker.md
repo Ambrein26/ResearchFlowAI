@@ -196,3 +196,266 @@ Create database table
 Save Gemini analysis results
 
 Test saved papers in Supabase
+
+ResearchFlow AI — Project Master Tracker
+
+Current state after today's development session
+
+Project Information
+
+Item
+
+Current Value
+
+Project Name
+
+ResearchFlow AI
+
+Type
+
+AI-powered Research Paper Analysis & Literature Review Platform
+
+Frontend
+
+React + Vite + Tailwind CSS
+
+Backend
+
+FastAPI
+
+Database
+
+PostgreSQL / Supabase
+
+AI
+
+Google Gemini
+
+PDF Processing
+
+PyMuPDF
+
+ORM
+
+SQLAlchemy
+
+Current Stable Area
+
+Paper upload → AI analysis → database → paper management → dynamic analysis
+
+Next Major Feature
+
+Research Workspace
+
+Today's Completed Work
+
+Verified the real database-backed Papers page.
+
+GET /api/papers is working.
+
+Paper cards display database records dynamically.
+
+Paper search works.
+
+Delete paper works.
+
+View Analysis uses /analysis/:paperId.
+
+GET /api/papers/{paper_id} is working.
+
+Analysis.jsx fetches the selected paper dynamically.
+
+Hardcoded analysis content was removed from the real workflow.
+
+Analysis loading and error states were added.
+
+Analysis fields are safely normalized when the backend returns strings or arrays.
+
+Dashboard was verified as working.
+
+Route/import issues affecting Profile, Workspace, Settings and Compare were resolved.
+
+The real UUID paper-analysis page works correctly.
+
+Backend Status
+
+Component
+
+Status
+
+Notes
+
+FastAPI app
+
+Completed
+
+Running successfully
+
+CORS
+
+Completed
+
+Frontend communication enabled
+
+PDF upload
+
+Completed
+
+PDF validation implemented
+
+PDF extraction
+
+Completed
+
+PyMuPDF service
+
+Gemini analysis
+
+Completed
+
+Structured analysis generated
+
+Paper schema
+
+Completed
+
+Analysis fields defined
+
+SQLAlchemy
+
+Completed
+
+ORM connected
+
+PostgreSQL/Supabase
+
+Completed
+
+Paper records persist
+
+POST /api/papers/analyze
+
+Completed
+
+Analyzes and saves paper
+
+GET /api/papers
+
+Completed
+
+Returns saved papers
+
+GET /api/papers/{paper_id}
+
+Completed
+
+Returns selected paper
+
+DELETE /api/papers/{paper_id}
+
+Completed
+
+Delete verified
+
+Frontend Status
+
+Area
+
+Status
+
+Current Behavior
+
+Dashboard
+
+Working
+
+Shows dashboard and upload navigation
+
+Papers
+
+Working
+
+Loads real database papers
+
+Upload modal
+
+Working
+
+Uploads and analyzes papers
+
+Search
+
+Working
+
+Filters saved papers
+
+Delete
+
+Working
+
+Deletes paper from backend
+
+Analysis route
+
+Working
+
+/analysis/:paperId
+
+Analysis page
+
+Working
+
+Displays selected database paper
+
+Loading/error handling
+
+Working
+
+Added to dynamic pages
+
+Compare
+
+Foundation only
+
+Needs implementation
+
+Workspace
+
+Foundation only
+
+Needs implementation
+
+Settings
+
+Foundation only
+
+UI exists; functionality pending
+
+Profile
+
+Foundation only
+
+UI/route foundation
+
+Authentication
+
+Pending
+
+UI/backend integration remains
+
+Current Folder/Architecture Direction
+
+Frontend: src/pages, src/components, src/layouts, src/routes, src/services.
+Backend: app/main.py, app/api/routes, app/services, app/models, app/schemas, app/db, app/core, app/utils.
+
+Current Milestone
+
+Milestone 8 — Database persistence and the paper workflow have been completed. Dynamic paper analysis and paper management are also completed. The next development milestone is the Research Workspace.
+
+Approximate Progress
+
+Approximately 50% overall. The percentage is a planning estimate, not a measured metric.
+
+Next Checkpoint
+
+Research Workspace: make the workspace a real, paper-specific research area connected to the selected paper and backend data.

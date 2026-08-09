@@ -10,67 +10,193 @@ import {
   Rocket,
   Tag,
   Clock,
+  LoaderCircle,
+  AlertCircle,
   Download,
 } from "lucide-react";
 
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+
+import api from "../../services/api";
 
 function Analysis() {
-  const analysis = {
-    title: "AI-Based Research Paper Analysis",
-    authors: "Research Authors",
-    pages: 12,
-    readingTime: "8 min",
+  const { paperId } = useParams();
 
-    tldr:
-      "This research paper presents an AI-based approach for analyzing complex research data and improving decision-making through automated machine learning techniques.",
+  const [paper, setPaper] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-    summary:
-      "The paper proposes a systematic approach for applying artificial intelligence to a real-world problem. The authors describe the problem, review existing approaches, introduce their proposed methodology, and evaluate the approach using experimental results.",
+  // ============================================================
+  // Fetch Paper Analysis
+  // ============================================================
 
-    contributions: [
-      "Introduces an AI-based methodology for solving the target problem.",
-      "Provides an experimental evaluation using a representative dataset.",
-      "Compares the proposed approach with existing techniques.",
-      "Discusses practical applications and possible improvements.",
-    ],
+  useEffect(() => {
+    const fetchPaper = async () => {
+      try {
+        setLoading(true);
+        setError("");
 
-    methodology:
-      "The proposed methodology consists of data collection, preprocessing, feature extraction, model development, training, evaluation, and result analysis.",
+        if (!paperId) {
+          setError("Paper ID is missing.");
+          return;
+        }
 
-    dataset:
-      "The research uses an experimental dataset containing structured observations relevant to the problem domain.",
+        const response = await api.get(`/api/papers/${paperId}`);
 
-    model:
-      "The system uses machine learning techniques to identify patterns in the collected data and generate predictions.",
+        /*
+         * Backend may return:
+         * {
+         *   success: true,
+         *   paper: {...}
+         * }
+         *
+         * or directly:
+         * {
+         *   id: ...,
+         *   title: ...
+         * }
+         */
 
-    limitations: [
-      "The evaluation is performed on a limited dataset.",
-      "Results may vary when applied to different real-world environments.",
-      "The computational requirements may increase with larger datasets.",
-      "Additional experiments are required for broader validation.",
-    ],
+        const paperData = response.data.paper || response.data;
 
-    futureWork: [
-      "Evaluate the approach using larger and more diverse datasets.",
-      "Improve model performance through advanced optimization techniques.",
-      "Test the system in real-world environments.",
-      "Explore integration with other AI techniques.",
-    ],
+        if (!paperData) {
+          throw new Error("Paper data was not found.");
+        }
 
-    keywords: [
-      "Artificial Intelligence",
-      "Machine Learning",
-      "Data Analysis",
-      "Research",
-      "Prediction",
-    ],
-  };
+        setPaper(paperData);
+      } catch (err) {
+        console.error("Failed to load paper analysis:", err);
+
+        setError(
+          err.response?.data?.detail ||
+            err.message ||
+            "Unable to load paper analysis."
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPaper();
+  }, [paperId]);
+
+  // ============================================================
+  // Loading
+  // ============================================================
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center gap-4">
+          <LoaderCircle
+            size={42}
+            className="animate-spin text-indigo-600"
+          />
+
+          <p className="text-sm font-medium text-slate-600">
+            Loading paper analysis...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ============================================================
+  // Error
+  // ============================================================
+
+  if (error || !paper) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6">
+        <div className="w-full max-w-lg rounded-xl border border-red-200 bg-white p-8 text-center shadow-sm">
+
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-red-600">
+            <AlertCircle size={24} />
+          </div>
+
+          <h1 className="mt-4 text-xl font-bold text-slate-900">
+            Unable to load analysis
+          </h1>
+
+          <p className="mt-2 text-sm leading-6 text-slate-500">
+            {error || "The requested paper could not be found."}
+          </p>
+
+          <Link
+            to="/papers"
+            className="mt-6 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700"
+          >
+            <ArrowLeft size={17} />
+            Back to My Papers
+          </Link>
+
+        </div>
+      </div>
+    );
+  }
+
+  // ============================================================
+  // Safe Data Handling
+  // ============================================================
+
+  const title =
+    paper.title ||
+    paper.filename ||
+    "Untitled Research Paper";
+
+  const authors = Array.isArray(paper.authors)
+    ? paper.authors.join(", ")
+    : paper.authors || "Unknown authors";
+
+  const pageCount = paper.page_count || 0;
+
+  const tldr =
+    paper.tldr ||
+    "No quick summary was generated for this paper.";
+
+  const summary =
+    paper.summary ||
+    "No research summary is available.";
+
+  const contributions = normalizeList(
+    paper.key_contributions
+  );
+
+  const methodology =
+    paper.methodology ||
+    "No methodology information is available.";
+
+  const dataset =
+    paper.dataset ||
+    "No dataset information is available.";
+
+  const model =
+    paper.models_or_algorithms ||
+    "No model or algorithm information is available.";
+
+  const findings =
+    paper.key_findings ||
+    "No key findings are available.";
+
+  const limitations = normalizeList(
+    paper.limitations
+  );
+
+  const futureWork = normalizeList(
+    paper.future_work
+  );
+
+  const keywords = normalizeList(
+    paper.keywords
+  );
 
   return (
     <div className="min-h-screen bg-slate-50">
 
-      {/* Header */}
+      {/* ======================================================
+          Header
+      ====================================================== */}
 
       <header className="border-b border-slate-200 bg-white">
 
@@ -100,8 +226,8 @@ function Analysis() {
 
               </div>
 
-              <h1 className="mt-1 text-xl font-bold text-slate-900">
-                {analysis.title}
+              <h1 className="mt-1 max-w-3xl text-xl font-bold text-slate-900">
+                {title}
               </h1>
 
             </div>
@@ -109,24 +235,41 @@ function Analysis() {
           </div>
 
 
-          <button
-            type="button"
-            className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-          >
-            <Download size={17} />
-            Export
-          </button>
+        <div className="flex items-center gap-3">
+
+         <Link
+          to={`/workspace/${paperId}`}
+          className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
+         >
+         <Sparkles size={17} />
+          Research Workspace
+         </Link>
+
+         <button
+          type="button"
+          onClick={() => window.print()}
+          className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+        >
+         <Download size={17} />
+          Export
+         </button>
+
+        </div>
 
         </div>
 
       </header>
 
 
-      {/* Main Content */}
+      {/* ======================================================
+          Main Content
+      ====================================================== */}
 
       <main className="mx-auto max-w-7xl space-y-6 px-8 py-8">
 
-        {/* Paper Metadata */}
+        {/* ====================================================
+            Paper Metadata
+        ==================================================== */}
 
         <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
 
@@ -135,11 +278,11 @@ function Analysis() {
             <div>
 
               <h2 className="text-lg font-bold text-slate-900">
-                {analysis.title}
+                {title}
               </h2>
 
               <p className="mt-2 text-sm text-slate-500">
-                {analysis.authors}
+                {authors}
               </p>
 
             </div>
@@ -149,12 +292,7 @@ function Analysis() {
 
               <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
                 <FileText size={15} />
-                {analysis.pages} pages
-              </div>
-
-              <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
-                <Clock size={15} />
-                {analysis.readingTime}
+                {pageCount} pages
               </div>
 
               <div className="flex items-center gap-2 rounded-lg bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700">
@@ -169,7 +307,9 @@ function Analysis() {
         </section>
 
 
-        {/* TL;DR */}
+        {/* ====================================================
+            TL;DR
+        ==================================================== */}
 
         <section className="rounded-xl border border-indigo-100 bg-indigo-50 p-6">
 
@@ -194,145 +334,104 @@ function Analysis() {
           </div>
 
           <p className="mt-5 leading-7 text-slate-700">
-            {analysis.tldr}
+            {tldr}
           </p>
 
         </section>
 
 
-        {/* Summary + Contributions */}
+        {/* ====================================================
+            Summary + Contributions
+        ==================================================== */}
 
         <div className="grid gap-6 lg:grid-cols-2">
 
           <AnalysisCard
             icon={<FileText size={20} />}
             title="Research Summary"
-            description={analysis.summary}
+            description={summary}
           />
 
 
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-
-            <SectionHeader
-              icon={<Target size={20} />}
-              title="Key Contributions"
-            />
-
-            <ul className="mt-5 space-y-3">
-
-              {analysis.contributions.map((item, index) => (
-
-                <li
-                  key={index}
-                  className="flex gap-3 text-sm leading-6 text-slate-600"
-                >
-
-                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-600" />
-
-                  {item}
-
-                </li>
-
-              ))}
-
-            </ul>
-
-          </div>
+          <ListCard
+            icon={<Target size={20} />}
+            title="Key Contributions"
+            items={contributions}
+          />
 
         </div>
 
 
-        {/* Methodology */}
+        {/* ====================================================
+            Methodology
+        ==================================================== */}
 
         <AnalysisCard
           icon={<Cpu size={20} />}
           title="Methodology"
-          description={analysis.methodology}
+          description={methodology}
         />
 
 
-        {/* Dataset + Model */}
+        {/* ====================================================
+            Dataset + Model
+        ==================================================== */}
 
         <div className="grid gap-6 lg:grid-cols-2">
 
           <AnalysisCard
             icon={<Database size={20} />}
             title="Dataset"
-            description={analysis.dataset}
+            description={dataset}
           />
 
           <AnalysisCard
             icon={<Cpu size={20} />}
             title="Model / Approach"
-            description={analysis.model}
+            description={model}
           />
 
         </div>
 
 
-        {/* Limitations */}
+        {/* ====================================================
+            Key Findings
+        ==================================================== */}
 
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-6">
-
-          <SectionHeader
-            icon={<AlertTriangle size={20} />}
-            title="Limitations"
-          />
-
-          <ul className="mt-5 space-y-3">
-
-            {analysis.limitations.map((item, index) => (
-
-              <li
-                key={index}
-                className="flex gap-3 text-sm leading-6 text-slate-700"
-              >
-
-                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
-
-                {item}
-
-              </li>
-
-            ))}
-
-          </ul>
-
-        </div>
+        <AnalysisCard
+          icon={<Sparkles size={20} />}
+          title="Key Findings"
+          description={findings}
+        />
 
 
-        {/* Future Work */}
+        {/* ====================================================
+            Limitations
+        ==================================================== */}
 
-        <div className="rounded-xl border border-green-100 bg-green-50 p-6">
-
-          <SectionHeader
-            icon={<Rocket size={20} />}
-            title="Future Research Directions"
-          />
-
-          <ul className="mt-5 space-y-3">
-
-            {analysis.futureWork.map((item, index) => (
-
-              <li
-                key={index}
-                className="flex gap-3 text-sm leading-6 text-slate-700"
-              >
-
-                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-green-600" />
-
-                {item}
-
-              </li>
-
-            ))}
-
-          </ul>
-
-        </div>
+        <ListCard
+          icon={<AlertTriangle size={20} />}
+          title="Limitations"
+          items={limitations}
+          variant="warning"
+        />
 
 
-        {/* Keywords */}
+        {/* ====================================================
+            Future Work
+        ==================================================== */}
+
+        <ListCard
+          icon={<Rocket size={20} />}
+          title="Future Research Directions"
+          items={futureWork}
+          variant="success"
+        />
+
+
+        {/* ====================================================
+            Keywords
+        ==================================================== */}
 
         <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
 
@@ -351,23 +450,29 @@ function Analysis() {
 
           <div className="mt-5 flex flex-wrap gap-2">
 
-            {analysis.keywords.map((keyword) => (
-
-              <span
-                key={keyword}
-                className="rounded-full bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700"
-              >
-                {keyword}
-              </span>
-
-            ))}
+            {keywords.length > 0 ? (
+              keywords.map((keyword, index) => (
+                <span
+                  key={`${keyword}-${index}`}
+                  className="rounded-full bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700"
+                >
+                  {keyword}
+                </span>
+              ))
+            ) : (
+              <p className="text-sm text-slate-500">
+                No keywords available.
+              </p>
+            )}
 
           </div>
 
         </section>
 
 
-        {/* AI Insight */}
+        {/* ====================================================
+            AI Insight
+        ==================================================== */}
 
         <section className="rounded-xl border border-purple-100 bg-purple-50 p-6">
 
@@ -392,10 +497,7 @@ function Analysis() {
           </div>
 
           <p className="mt-5 leading-7 text-slate-700">
-            The research presents a promising direction, but further
-            validation using larger datasets and real-world experiments
-            would strengthen the reliability and generalizability of
-            the proposed approach.
+            {generateInsight(paper)}
           </p>
 
         </section>
@@ -407,9 +509,59 @@ function Analysis() {
 }
 
 
-/* Reusable Analysis Card */
+// ============================================================
+// Helper: Convert Backend Values Into Arrays
+// ============================================================
 
-function AnalysisCard({ icon, title, description }) {
+function normalizeList(value) {
+  if (!value) {
+    return [];
+  }
+
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    return value
+      .split(/\n|•|;/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
+
+// ============================================================
+// AI Insight Helper
+// ============================================================
+
+function generateInsight(paper) {
+  if (paper.key_findings) {
+    return typeof paper.key_findings === "string"
+      ? paper.key_findings
+      : "The analysis identifies important findings from the research paper.";
+  }
+
+  return (
+    "The research provides useful insights based on the analyzed methodology, " +
+    "findings, and experimental results. Further validation using larger and " +
+    "more diverse datasets could strengthen the reliability and generalizability " +
+    "of the research."
+  );
+}
+
+
+// ============================================================
+// Analysis Card
+// ============================================================
+
+function AnalysisCard({
+  icon,
+  title,
+  description,
+}) {
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
 
@@ -427,9 +579,118 @@ function AnalysisCard({ icon, title, description }) {
 }
 
 
-/* Section Header */
+// ============================================================
+// List Card
+// ============================================================
 
-function SectionHeader({ icon, title }) {
+function ListCard({
+  icon,
+  title,
+  items,
+  variant = "default",
+}) {
+
+  const styles = {
+    default: {
+      container:
+        "border-slate-200 bg-white",
+      icon:
+        "bg-indigo-50 text-indigo-600",
+      bullet:
+        "bg-indigo-600",
+      text:
+        "text-slate-600",
+    },
+
+    warning: {
+      container:
+        "border-amber-200 bg-amber-50",
+      icon:
+        "bg-amber-100 text-amber-700",
+      bullet:
+        "bg-amber-500",
+      text:
+        "text-slate-700",
+    },
+
+    success: {
+      container:
+        "border-green-100 bg-green-50",
+      icon:
+        "bg-green-100 text-green-700",
+      bullet:
+        "bg-green-600",
+      text:
+        "text-slate-700",
+    },
+  };
+
+  const style = styles[variant];
+
+  return (
+    <section
+      className={`rounded-xl border p-6 shadow-sm ${style.container}`}
+    >
+
+      <div className="flex items-center gap-3">
+
+        <div
+          className={`flex h-10 w-10 items-center justify-center rounded-lg ${style.icon}`}
+        >
+          {icon}
+        </div>
+
+        <h2 className="font-bold text-slate-900">
+          {title}
+        </h2>
+
+      </div>
+
+
+      <ul className="mt-5 space-y-3">
+
+        {items.length > 0 ? (
+
+          items.map((item, index) => (
+
+            <li
+              key={`${item}-${index}`}
+              className={`flex gap-3 text-sm leading-6 ${style.text}`}
+            >
+
+              <span
+                className={`mt-2 h-1.5 w-1.5 shrink-0 rounded-full ${style.bullet}`}
+              />
+
+              <span>{item}</span>
+
+            </li>
+
+          ))
+
+        ) : (
+
+          <li className="text-sm text-slate-500">
+            No information available.
+          </li>
+
+        )}
+
+      </ul>
+
+    </section>
+  );
+}
+
+
+// ============================================================
+// Section Header
+// ============================================================
+
+function SectionHeader({
+  icon,
+  title,
+}) {
   return (
     <div className="flex items-center gap-3">
 

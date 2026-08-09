@@ -1,46 +1,35 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 
 import MainLayout from "../layouts/MainLayout";
 import AuthLayout from "../layouts/AuthLayout";
 import DashboardLayout from "../layouts/DashboardLayout";
 
+import Landing from "../pages/Landing/Landing";
 import Login from "../pages/Login/Login";
 import Register from "../pages/Register/Register";
-
 import Dashboard from "../pages/Dashboard/Dashboard";
 import Papers from "../pages/Papers/Papers";
 import Analysis from "../pages/Analysis/Analysis";
-import Workspace from "../pages/Workspace/Workspace";
 import Compare from "../pages/Compare/Compare";
-
-function Home() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold text-slate-900">
-          ResearchFlow AI
-        </h1>
-
-        <p className="mt-3 text-slate-500">
-          AI-powered research paper analysis
-        </p>
-      </div>
-    </div>
-  );
-}
+import Workspace from "../pages/Workspace/Workspace";
+import Settings from "../pages/Settings/Settings";
 
 function AppRoutes() {
   return (
     <Routes>
 
-      {/* Public Routes */}
+      {/* =====================================================
+          PUBLIC ROUTES
+      ===================================================== */}
 
       <Route element={<MainLayout />}>
-        <Route path="/" element={<Home />} />
+        <Route path="/" element={<Landing />} />
       </Route>
 
 
-      {/* Authentication Routes */}
+      {/* =====================================================
+          AUTH ROUTES
+      ===================================================== */}
 
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<Login />} />
@@ -48,36 +37,51 @@ function AppRoutes() {
       </Route>
 
 
-      {/* Application Routes */}
+      {/* =====================================================
+          DASHBOARD / APPLICATION ROUTES
+      ===================================================== */}
 
       <Route element={<DashboardLayout />}>
 
-        <Route
-          path="/dashboard"
-          element={<Dashboard />}
-        />
+        <Route path="/dashboard" element={<Dashboard />} />
 
-        <Route
-          path="/papers"
-          element={<Papers />}
-        />
+        <Route path="/papers" element={<Papers />} />
 
+        {/* Individual paper analysis */}
         <Route
-          path="/analysis"
+          path="/analysis/:paperId"
           element={<Analysis />}
         />
 
-        <Route
-          path="/workspace"
-          element={<Workspace />}
-        />
+        <Route path="/compare" element={<Compare />} />
 
-        <Route
-          path="/compare"
-          element={<Compare />}
-        />
+        <Route path="/workspace/:paperId" element={<Workspace />} />
+
+        <Route path="/settings" element={<Settings />} />
+
 
       </Route>
+
+
+      {/* =====================================================
+          ANALYSIS WITHOUT PAPER ID
+          Redirect to My Papers
+      ===================================================== */}
+
+      <Route
+        path="/analysis"
+        element={<Navigate to="/papers" replace />}
+      />
+
+
+      {/* =====================================================
+          UNKNOWN ROUTES
+      ===================================================== */}
+
+      <Route
+        path="*"
+        element={<Navigate to="/" replace />}
+      />
 
     </Routes>
   );
