@@ -10,13 +10,16 @@ import {
 
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { useAuth } from "../../context/AuthContext";
 
 import api from "../../services/api";
 
 function Dashboard() {
+  const { user } = useAuth();
   const [papers, setPapers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
 
   // ============================================================
   // Fetch Papers
@@ -171,9 +174,14 @@ function Dashboard() {
             </h1>
 
             <p className="mt-1 text-sm text-slate-500">
-              Welcome back. Continue your research journey.
+                    Welcome back,{" "}
+              <span className="font-medium text-slate-700">
+               {user?.user_metadata?.full_name ||
+               user?.email?.split("@")[0] ||
+                "Researcher"}
+                </span>
+                . Continue your research journey.
             </p>
-
           </div>
 
           <Link

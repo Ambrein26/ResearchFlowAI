@@ -2,9 +2,18 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.papers import router as papers_router
-from app.db.database import Base, engine
-from app.models.paper import Paper
+from app.api.routes.note import router as note_router
+from app.api.routes.bookmarks import router as bookmarks_router
+from app.api.routes.compare import router as compare_router
+from app.api.routes.literature_review import router as literature_review_router
+from app.api.routes.assistant import router as assistant_router
 
+
+from app.db.database import Base, engine
+
+from app.models.paper import Paper
+from app.models.note import Note
+from app.models.bookmark import Bookmark
 
 app = FastAPI(
     title="ResearchFlow AI API",
@@ -44,3 +53,8 @@ def health_check():
 
 
 app.include_router(papers_router)
+app.include_router(note_router)
+app.include_router(bookmarks_router)
+app.include_router(compare_router)
+app.include_router(literature_review_router)
+app.include_router(assistant_router)

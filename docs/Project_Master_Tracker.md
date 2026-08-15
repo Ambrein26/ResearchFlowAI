@@ -459,3 +459,244 @@ Approximately 50% overall. The percentage is a planning estimate, not a measured
 Next Checkpoint
 
 Research Workspace: make the workspace a real, paper-specific research area connected to the selected paper and backend data.
+
+15.8
+ResearchFlow AI — Project Master Tracker
+
+Current state after the latest development session
+
+Project Information
+
+Project Name
+
+ResearchFlow AI
+
+Type
+
+AI-powered Research Paper Analysis & Literature Review Platform
+
+Frontend
+
+React + Vite + Tailwind CSS
+
+Backend
+
+FastAPI
+
+Database
+
+PostgreSQL / Supabase
+
+AI
+
+Google Gemini
+
+PDF Processing
+
+PyMuPDF
+
+ORM
+
+SQLAlchemy
+
+Authentication
+
+Supabase Authentication
+
+Current Stable Area
+
+Authentication → paper workflow → database → dynamic analysis → Research Workspace foundation
+
+Next Major Feature
+
+Persistent AI Assistant conversation history
+
+Today's Completed Work
+
+Supabase authentication integrated into Login and Register.
+
+AuthContext and ProtectedRoute implemented.
+
+Authenticated navigation verified.
+
+Profile connected to the authenticated Supabase user.
+
+Settings page implemented.
+
+Dashboard and application routes verified.
+
+Paper-specific Research Workspace navigation corrected.
+
+Notes and bookmarks database support created.
+
+Existing paper upload, AI analysis, database persistence, listing, search, delete and dynamic analysis retained.
+
+AI Assistant foundation exists; conversation persistence remains.
+
+Backend Status
+
+Phase / Area
+
+Status
+
+Current State
+
+FastAPI
+
+Completed
+
+Running successfully
+
+CORS
+
+Completed
+
+Frontend communication configured
+
+PDF upload/extraction
+
+Completed
+
+Validation + PyMuPDF
+
+Gemini analysis
+
+Completed
+
+Structured analysis
+
+SQLAlchemy
+
+Completed
+
+ORM connected
+
+PostgreSQL/Supabase
+
+Completed
+
+Persistence working
+
+Paper APIs
+
+Completed
+
+Analyze, list, retrieve, delete
+
+Notes
+
+Completed
+
+Backend/database foundation
+
+Bookmarks
+
+Completed
+
+Backend/database foundation
+
+Assistant
+
+Foundation
+
+Persistence next
+
+Authentication
+
+Completed
+
+Supabase session integration
+
+Authorization
+
+Next
+
+Verify user ownership across resources
+
+Frontend Status
+
+Phase / Area
+
+Status
+
+Current State
+
+Landing
+
+Completed
+
+Public landing page
+
+Login/Register
+
+Completed
+
+Supabase authentication
+
+Dashboard
+
+Working
+
+Authenticated dashboard
+
+My Papers
+
+Working
+
+Database-backed papers
+
+Analysis
+
+Working
+
+Dynamic selected-paper analysis
+
+Workspace
+
+Working foundation
+
+Opened from selected paper; notes/bookmarks supported
+
+Compare
+
+Foundation
+
+Full implementation pending
+
+AI Assistant
+
+Foundation
+
+Conversation history pending
+
+Profile
+
+Working
+
+Authenticated account information
+
+Settings
+
+Working UI
+
+Preferences/security sections
+
+Protected routes
+
+Completed
+
+Unauthenticated users redirected
+
+Next Checkpoint
+
+Create assistant conversation and message persistence.
+
+Associate conversations with users and optionally papers.
+
+Verify user-specific notes, bookmarks, papers and conversations.
+
+Complete local end-to-end testing.
+
+Prepare and perform production deployment.
+
+Latest update date: 15 August 2026

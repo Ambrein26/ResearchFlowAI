@@ -240,16 +240,16 @@ function Analysis() {
          <Link
           to={`/workspace/${paperId}`}
           className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
-         >
-         <Sparkles size={17} />
-          Research Workspace
+          >
+          <Sparkles size={17} />
+            Research Workspace
          </Link>
 
          <button
           type="button"
           onClick={() => window.print()}
           className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-        >
+         >
          <Download size={17} />
           Export
          </button>
