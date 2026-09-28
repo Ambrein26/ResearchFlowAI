@@ -9,26 +9,26 @@ import { Link } from "react-router-dom";
 
 function Landing() {
   return (
-    <div>
+    <div className="bg-white text-slate-900 dark:bg-slate-950 dark:text-slate-100">
 
       {/* Hero Section */}
       <section className="mx-auto max-w-7xl px-6 py-20 lg:py-28">
 
         <div className="mx-auto max-w-4xl text-center">
 
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 dark:border-indigo-900 dark:bg-indigo-500/15 dark:text-indigo-300">
             <Sparkles size={16} />
             AI-powered research workspace
           </div>
 
-          <h1 className="text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
+          <h1 className="text-4xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-5xl lg:text-6xl">
             Understand research papers
             <span className="block text-indigo-600">
               faster with AI
             </span>
           </h1>
 
-          <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-slate-600">
+          <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-slate-600 dark:text-slate-300">
             Upload research papers, extract meaningful insights,
             explore limitations, understand complex concepts,
             and compare multiple papers in one workspace.
@@ -46,7 +46,7 @@ function Landing() {
 
             <Link
               to="/login"
-              className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-6 py-3 font-semibold text-slate-700 transition hover:bg-slate-50"
+              className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-6 py-3 font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
             >
               Sign In
             </Link>
@@ -58,16 +58,16 @@ function Landing() {
 
 
       {/* Workflow */}
-      <section className="border-y border-slate-200 bg-white">
+      <section className="border-y border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
         <div className="mx-auto max-w-7xl px-6 py-16">
 
           <div className="mx-auto mb-12 max-w-2xl text-center">
 
-            <h2 className="text-3xl font-bold text-slate-900">
+            <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
               From paper to insight
             </h2>
 
-            <p className="mt-3 text-slate-600">
+            <p className="mt-3 text-slate-600 dark:text-slate-300">
               A focused workspace for understanding and synthesizing
               academic research.
             </p>
@@ -78,17 +78,17 @@ function Landing() {
           <div className="grid gap-6 md:grid-cols-3">
 
             {/* Feature 1 */}
-            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
 
               <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
                 <FileText size={22} />
               </div>
 
-              <h3 className="text-lg font-semibold text-slate-900">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                 Analyze Papers
               </h3>
 
-              <p className="mt-2 leading-6 text-slate-600">
+              <p className="mt-2 leading-6 text-slate-600 dark:text-slate-300">
                 Upload a research paper and extract its key
                 contributions, methodology, limitations, and
                 important findings.
@@ -98,17 +98,17 @@ function Landing() {
 
 
             {/* Feature 2 */}
-            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
 
               <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
                 <Sparkles size={22} />
               </div>
 
-              <h3 className="text-lg font-semibold text-slate-900">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                 Understand with AI
               </h3>
 
-              <p className="mt-2 leading-6 text-slate-600">
+              <p className="mt-2 leading-6 text-slate-600 dark:text-slate-300">
                 Ask contextual questions and get explanations
                 based on the research paper you're studying.
               </p>
@@ -117,17 +117,17 @@ function Landing() {
 
 
             {/* Feature 3 */}
-            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
 
               <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
                 <GitCompare size={22} />
               </div>
 
-              <h3 className="text-lg font-semibold text-slate-900">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                 Compare Research
               </h3>
 
-              <p className="mt-2 leading-6 text-slate-600">
+              <p className="mt-2 leading-6 text-slate-600 dark:text-slate-300">
                 Compare multiple papers to identify common
                 approaches, differences, limitations, and
                 potential research gaps.

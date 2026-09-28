@@ -5,6 +5,9 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
+from app.core.auth import get_current_user_id
+from app.core.data import normalize_uuid
+from app.core.errors import ai_service_exception
 from app.models.paper import Paper
 from app.services.ai_service import generate_literature_review
 
@@ -30,8 +33,13 @@ class LiteratureReviewRequest(BaseModel):
 @router.post("")
 def generate_review(
     request: LiteratureReviewRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user_id: str = Depends(get_current_user_id)
 ):
+    request.paper_ids = [
+        normalize_uuid(paper_id, "Paper")
+        for paper_id in request.paper_ids
+    ]
 
     # --------------------------------------------------------
     # Validate number of papers
@@ -43,10 +51,10 @@ def generate_review(
             detail="Please select at least 2 papers for the literature review."
         )
 
-    if len(request.paper_ids) > 4:
+    if len(request.paper_ids) > 6:
         raise HTTPException(
             status_code=400,
-            detail="A maximum of 4 papers can be used for the literature review."
+            detail="A maximum of 6 papers can be used for the literature review."
         )
 
     # --------------------------------------------------------
@@ -55,7 +63,10 @@ def generate_review(
 
     papers = (
         db.query(Paper)
-        .filter(Paper.id.in_(request.paper_ids))
+        .filter(
+            Paper.id.in_(request.paper_ids),
+            Paper.user_id == current_user_id
+        )
         .all()
     )
 
@@ -115,8 +126,4 @@ def generate_review(
         }
 
     except Exception as error:
-
-        raise HTTPException(
-            status_code=500,
-            detail=f"Literature review generation failed: {str(error)}"
-        )
+        raise ai_service_exception("Literature review generation", error)

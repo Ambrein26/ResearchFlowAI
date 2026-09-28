@@ -7,12 +7,430 @@ import {
   GitCompare,
   Sparkles,
   BookOpen,
+  Download,
 } from "lucide-react";
 
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 
+import { Document, Packer, Paragraph, HeadingLevel } from "docx";
+import jsPDF from "jspdf";
+
 import api from "../../services/api";
+
+// ============================================================
+// Selection limits
+// ============================================================
+
+const MIN_PAPERS = 2;
+const MAX_PAPERS = 6;
+
+// ============================================================
+// Shared value flattening (used by results components + export)
+// ============================================================
+
+function flattenValue(value) {
+  if (value === null || value === undefined || value === "") {
+    return "—";
+  }
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return "—";
+    }
+
+    return value
+      .map((item) =>
+        typeof item === "object"
+          ? JSON.stringify(item)
+          : `- ${item}`
+      )
+      .join("\n");
+  }
+
+  if (typeof value === "object") {
+    return Object.keys(value).length
+      ? JSON.stringify(value, null, 2)
+      : "—";
+  }
+
+  return String(value);
+}
+
+// ============================================================
+// Export block builders
+// ============================================================
+// A "block" = { heading: string|null, items: [{ label, value }] }
+
+const COMPARISON_FIELDS = [
+  { key: "publication_year", label: "Publication Year" },
+  { key: "abstract", label: "Abstract" },
+  { key: "research_problem", label: "Research Problem" },
+  { key: "key_contributions", label: "Key Contributions" },
+  { key: "methodology", label: "Methodology" },
+  { key: "dataset", label: "Dataset" },
+  { key: "models_or_algorithms", label: "Models / Algorithms" },
+  { key: "key_findings", label: "Key Findings" },
+  { key: "limitations", label: "Limitations" },
+  { key: "future_work", label: "Future Work" },
+  { key: "keywords", label: "Keywords" },
+];
+
+const AI_COMPARISON_SECTIONS = [
+  { key: "overall_comparison", label: "Overall Comparison" },
+  { key: "similarities", label: "Similarities" },
+  { key: "key_differences", label: "Key Differences" },
+  { key: "methodology_comparison", label: "Methodology Comparison" },
+  { key: "dataset_comparison", label: "Dataset Comparison" },
+  { key: "model_comparison", label: "Model / Algorithm Comparison" },
+  { key: "findings_comparison", label: "Findings Comparison" },
+  { key: "contributions_comparison", label: "Contribution Comparison" },
+  { key: "limitations_comparison", label: "Limitations Comparison" },
+  { key: "research_gaps", label: "Research Gaps" },
+  { key: "strengths", label: "Strengths" },
+  { key: "weaknesses", label: "Weaknesses" },
+  { key: "final_insights", label: "Final Insights" },
+  { key: "conclusion", label: "Conclusion" },
+];
+
+const LITERATURE_REVIEW_SECTIONS = [
+  { key: "introduction", label: "Introduction" },
+  { key: "existing_research", label: "Existing Research" },
+  { key: "methodology_comparison", label: "Methodology Comparison" },
+  { key: "key_findings", label: "Key Findings" },
+  { key: "research_gaps", label: "Research Gaps" },
+  { key: "conclusion", label: "Conclusion" },
+];
+
+function buildComparisonBlocks(papers) {
+  if (!Array.isArray(papers)) return [];
+
+  return papers.map((paper) => ({
+    heading:
+      paper.title || paper.filename || "Untitled Research Paper",
+    items: COMPARISON_FIELDS.map((field) => ({
+      label: field.label,
+      value: flattenValue(paper[field.key]),
+    })),
+  }));
+}
+
+function buildSectionedBlocks(data, sectionDefs) {
+  if (!data) return [];
+
+  if (typeof data === "string") {
+    const blocks = [];
+    let current = { heading: null, items: [] };
+    data.split(/\r?\n/).forEach((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return;
+      const heading = trimmed.replace(/^[#\d.)\s-]+/, "").replace(/:$/, "");
+      const isHeading = /^#{1,6}\s|^[A-Z][A-Za-z /&-]{2,}:?$/.test(trimmed) && trimmed.length < 90;
+      if (isHeading && !trimmed.startsWith("-")) {
+        if (current.items.length) blocks.push(current);
+        current = { heading, items: [] };
+      } else {
+        current.items.push({ label: "", value: trimmed });
+      }
+    });
+    if (current.items.length) blocks.push(current);
+    return blocks.length ? blocks : [{ heading: null, items: [{ label: "Content", value: data }] }];
+  }
+
+  const availableSections = sectionDefs.filter(
+    (section) =>
+      data[section.key] !== undefined &&
+      data[section.key] !== null &&
+      data[section.key] !== ""
+  );
+
+  if (availableSections.length === 0) {
+    return [
+      {
+        heading: null,
+        items: [{ label: "Content", value: flattenValue(data) }],
+      },
+    ];
+  }
+
+  return [
+    {
+      heading: data.title || null,
+      items: availableSections.map((section) => ({
+        label: section.label,
+        value: flattenValue(data[section.key]),
+      })),
+    },
+  ];
+}
+
+function buildAiBlocks(aiComparison) {
+  return buildSectionedBlocks(aiComparison, AI_COMPARISON_SECTIONS);
+}
+
+function buildReviewBlocks(literatureReview) {
+  return buildSectionedBlocks(
+    literatureReview,
+    LITERATURE_REVIEW_SECTIONS
+  );
+}
+
+// ============================================================
+// DOCX export
+// ============================================================
+
+async function downloadAsDocx(title, blocks, filename) {
+  const children = [
+    new Paragraph({ text: title, heading: HeadingLevel.HEADING_1 }),
+  ];
+
+  blocks.forEach((block) => {
+    if (block.heading) {
+      children.push(
+        new Paragraph({
+          text: block.heading,
+          heading: HeadingLevel.HEADING_2,
+          spacing: { before: 300, after: 100 },
+        })
+      );
+    }
+
+    block.items.forEach((item) => {
+      children.push(
+        new Paragraph({
+          text: item.label,
+          heading: HeadingLevel.HEADING_3,
+          spacing: { before: 200 },
+        })
+      );
+
+      String(item.value)
+        .split("\n")
+        .forEach((line) => {
+          children.push(new Paragraph({ text: line }));
+        });
+    });
+  });
+
+  const doc = new Document({
+    sections: [{ children }],
+  });
+
+  const blob = await Packer.toBlob(doc);
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+// ============================================================
+// PDF export
+// ============================================================
+
+function downloadAsPdf(title, blocks, filename) {
+  const pdf = new jsPDF({ unit: "pt", format: "a4" });
+
+  const marginX = 40;
+  const maxWidth = 515;
+  const pageBottom = 780;
+
+  let y = 50;
+
+  const ensureSpace = (needed) => {
+    if (y + needed > pageBottom) {
+      pdf.addPage();
+      y = 50;
+    }
+  };
+
+  pdf.setFontSize(18);
+  pdf.setFont(undefined, "bold");
+  const titleLines = pdf.splitTextToSize(title, maxWidth);
+  titleLines.forEach((line) => {
+    ensureSpace(22);
+    pdf.text(line, marginX, y);
+    y += 22;
+  });
+  y += 10;
+
+  blocks.forEach((block) => {
+    if (block.heading) {
+      ensureSpace(24);
+      pdf.setFontSize(14);
+      pdf.setFont(undefined, "bold");
+      const headingLines = pdf.splitTextToSize(block.heading, maxWidth);
+      headingLines.forEach((line) => {
+        ensureSpace(18);
+        pdf.text(line, marginX, y);
+        y += 18;
+      });
+      y += 6;
+    }
+
+    block.items.forEach((item) => {
+      ensureSpace(16);
+      pdf.setFontSize(11);
+      pdf.setFont(undefined, "bold");
+      pdf.text(item.label, marginX, y);
+      y += 15;
+
+      pdf.setFont(undefined, "normal");
+      pdf.setFontSize(10);
+
+      const valueLines = pdf.splitTextToSize(
+        String(item.value),
+        maxWidth
+      );
+
+      valueLines.forEach((line) => {
+        ensureSpace(13);
+        pdf.text(line, marginX, y);
+        y += 13;
+      });
+
+      y += 8;
+    });
+
+    y += 6;
+  });
+
+  pdf.save(filename);
+}
+
+// ============================================================
+// Download buttons (reused across the three tabs)
+// ============================================================
+
+function DownloadButtons({ onDownloadDocx, onDownloadPdf, disabled }) {
+  const [downloading, setDownloading] = useState("");
+
+  const handleDocx = async () => {
+    try {
+      setDownloading("docx");
+      await onDownloadDocx();
+    } catch (err) {
+      console.error("Failed to generate DOCX:", err);
+    } finally {
+      setDownloading("");
+    }
+  };
+
+  const handlePdf = async () => {
+    try {
+      setDownloading("pdf");
+      await onDownloadPdf();
+    } catch (err) {
+      console.error("Failed to generate PDF:", err);
+    } finally {
+      setDownloading("");
+    }
+  };
+
+  return (
+    <div className="flex justify-end gap-3 border-t border-slate-100 bg-slate-50 p-4">
+      <button
+        type="button"
+        onClick={handleDocx}
+        disabled={disabled || downloading !== ""}
+        className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {downloading === "docx" ? (
+          <LoaderCircle size={15} className="animate-spin" />
+        ) : (
+          <Download size={15} />
+        )}
+        Download DOCX
+      </button>
+
+      <button
+        type="button"
+        onClick={handlePdf}
+        disabled={disabled || downloading !== ""}
+        className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {downloading === "pdf" ? (
+          <LoaderCircle size={15} className="animate-spin" />
+        ) : (
+          <Download size={15} />
+        )}
+        Download PDF
+      </button>
+    </div>
+  );
+}
+
+function GeneratePanel({ icon: Icon, title, description, buttonLabel, loading, onGenerate }) {
+  return (
+    <section className="rounded-xl border border-indigo-100 bg-white p-6 shadow-sm dark:border-indigo-900 dark:bg-slate-900">
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300">
+            <Icon size={20} />
+          </div>
+          <div>
+            <h2 className="font-bold text-slate-900 dark:text-slate-100">{title}</h2>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">{description}</p>
+          </div>
+        </div>
+        <button type="button" onClick={onGenerate} disabled={loading} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-5 py-3 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">
+          {loading ? <LoaderCircle size={17} className="animate-spin" /> : <Icon size={17} />}
+          {loading ? "Generating..." : buttonLabel}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function RegenerateButton({ onClick, loading, label = "Regenerate" }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={loading}
+      className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 px-3 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-500/10"
+    >
+      {loading && <LoaderCircle size={15} className="animate-spin" />}
+      {label}
+    </button>
+  );
+}
+
+function SectionBlocks({ title, icon: Icon, blocks, tone }) {
+  const accent = tone === "emerald"
+    ? {
+        border: "border-emerald-100 dark:border-emerald-900",
+        background: "bg-emerald-50 dark:bg-emerald-500/10",
+        icon: "bg-emerald-600",
+      }
+    : {
+        border: "border-indigo-100 dark:border-indigo-900",
+        background: "bg-indigo-50 dark:bg-indigo-500/10",
+        icon: "bg-indigo-600",
+      };
+  return (
+    <div>
+      <div className={`border-b p-6 ${accent.border} ${accent.background}`}>
+        <div className="flex items-center gap-3">
+          <div className={`flex h-10 w-10 items-center justify-center rounded-lg text-white ${accent.icon}`}><Icon size={20} /></div>
+          <div><h2 className="font-bold text-slate-900 dark:text-slate-100">{title}</h2><p className="mt-1 text-sm text-slate-500">Generated from the selected research papers.</p></div>
+        </div>
+      </div>
+      <div className="space-y-5 p-6">
+        {blocks.map((block, index) => (
+          <article key={`${block.heading || "section"}-${index}`} className="rounded-xl border border-slate-200 p-5 dark:border-slate-700">
+            {block.heading && <h3 className="mb-3 text-base font-bold text-slate-900 dark:text-slate-100">{block.heading}</h3>}
+            <div className="space-y-2">{block.items.map((item, itemIndex) => <p key={itemIndex} className="whitespace-pre-wrap text-sm leading-7 text-slate-600 dark:text-slate-300">{item.label && <strong>{item.label}: </strong>}{item.value}</p>)}</div>
+          </article>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function Compare() {
   // ============================================================
@@ -29,12 +447,42 @@ function Compare() {
 
   const [literatureReview, setLiteratureReview] = useState(null);
 
+  const [savedComparisons, setSavedComparisons] = useState([]);
+
+  const [savedComparisonId, setSavedComparisonId] = useState("");
+
+  const [isLoadingSavedComparison, setIsLoadingSavedComparison] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [comparing, setComparing] = useState(false);
   const [aiComparing, setAiComparing] = useState(false);
   const [generatingReview, setGeneratingReview] = useState(false);
 
   const [error, setError] = useState("");
+
+  // Which result tab is active: "comparison" | "ai" | "review"
+  const [activeTab, setActiveTab] = useState("comparison");
+
+  const restoreSavedComparison = (paperIds, records = savedComparisons) => {
+    const selectedSet = [...paperIds].map(String).sort();
+    const saved = records.find((record) =>
+      [...(record.paper_ids || [])].map(String).sort().join(",") ===
+      selectedSet.join(",")
+    );
+
+    if (!saved) {
+      setSavedComparisonId("");
+      setComparison(null);
+      setAiComparison(null);
+      setLiteratureReview(null);
+      return;
+    }
+
+    setSavedComparisonId(String(saved.id));
+    setComparison(saved.comparison_result || null);
+    setAiComparison(saved.ai_analysis || null);
+    setLiteratureReview(saved.literature_review || null);
+  };
 
   // ============================================================
   // Fetch Papers
@@ -53,6 +501,10 @@ function Compare() {
         } else {
           setPapers([]);
         }
+
+        setIsLoadingSavedComparison(true);
+        const savedResponse = await api.get("/api/comparisons");
+        setSavedComparisons(savedResponse.data.comparisons || []);
       } catch (err) {
         console.error("Failed to load papers:", err);
 
@@ -61,6 +513,7 @@ function Compare() {
             "Unable to load your research papers."
         );
       } finally {
+        setIsLoadingSavedComparison(false);
         setLoading(false);
       }
     };
@@ -73,22 +526,54 @@ function Compare() {
   // ============================================================
 
   const togglePaperSelection = (paperId) => {
-    setComparison(null);
-    setAiComparison(null);
-    setLiteratureReview(null);
+    setActiveTab("comparison");
     setError("");
 
-    setSelectedPaperIds((previous) => {
-      if (previous.includes(paperId)) {
-        return previous.filter((id) => id !== paperId);
-      }
+    let nextSelection;
+    if (selectedPaperIds.includes(paperId)) {
+      nextSelection = selectedPaperIds.filter((id) => id !== paperId);
+    } else if (selectedPaperIds.length >= MAX_PAPERS) {
+      return;
+    } else {
+      nextSelection = [...selectedPaperIds, paperId];
+    }
 
-      if (previous.length >= 4) {
-        return previous;
-      }
+    setSelectedPaperIds(nextSelection);
+    restoreSavedComparison(nextSelection);
+  };
 
-      return [...previous, paperId];
+  const saveGeneratedResult = async (payload) => {
+    const response = await api.post("/api/comparisons", {
+      paper_ids: selectedPaperIds,
+      ...payload,
     });
+    const saved = response.data.comparison;
+    setSavedComparisonId(String(saved.id));
+    setSavedComparisons((previous) => [
+      saved,
+      ...previous.filter((item) => String(item.id) !== String(saved.id)),
+    ]);
+    return saved;
+  };
+
+  const deleteSavedComparison = async () => {
+    if (!savedComparisonId) return;
+
+    try {
+      await api.delete(`/api/comparisons/${savedComparisonId}`);
+      setSavedComparisons((previous) => previous.filter(
+        (item) => String(item.id) !== String(savedComparisonId)
+      ));
+      setSavedComparisonId("");
+      setComparison(null);
+      setAiComparison(null);
+      setLiteratureReview(null);
+    } catch (err) {
+      setError(
+        err.response?.data?.detail ||
+          "Unable to delete the saved comparison."
+      );
+    }
   };
 
   // ============================================================
@@ -96,8 +581,12 @@ function Compare() {
   // ============================================================
 
   const handleCompare = async () => {
-    if (selectedPaperIds.length < 2) {
-      setError("Please select at least 2 papers to compare.");
+    if (comparing) return;
+
+    if (selectedPaperIds.length < MIN_PAPERS) {
+      setError(
+        `Please select at least ${MIN_PAPERS} papers to compare.`
+      );
       return;
     }
 
@@ -105,23 +594,22 @@ function Compare() {
       setComparing(true);
       setError("");
 
-      setAiComparison(null);
-      setLiteratureReview(null);
-
       const response = await api.post("/api/compare", {
         paper_ids: selectedPaperIds,
       });
 
       if (response.data.success) {
         setComparison(response.data.papers || []);
+        await saveGeneratedResult({
+          comparison_result: response.data.papers || [],
+        });
+        setActiveTab("comparison");
       } else {
         setComparison(null);
         setError("Unable to compare the selected papers.");
       }
     } catch (err) {
       console.error("Failed to compare papers:", err);
-
-      setComparison(null);
 
       setError(
         err.response?.data?.detail ||
@@ -137,9 +625,11 @@ function Compare() {
   // ============================================================
 
   const handleAIComparison = async () => {
-    if (selectedPaperIds.length < 2) {
+    if (aiComparing) return;
+
+    if (selectedPaperIds.length < MIN_PAPERS) {
       setError(
-        "Please select at least 2 papers for AI comparison."
+        `Please select at least ${MIN_PAPERS} papers for AI comparison.`
       );
       return;
     }
@@ -147,18 +637,16 @@ function Compare() {
     try {
       setAiComparing(true);
       setError("");
-      setLiteratureReview(null);
-
       const response = await api.post("/api/compare/ai", {
         paper_ids: selectedPaperIds,
       });
 
       if (response.data.success) {
-        setAiComparison(
-          response.data.comparison ||
-            response.data.result ||
-            response.data.analysis
-        );
+        const result = response.data.comparison ||
+          response.data.result ||
+          response.data.analysis;
+        setAiComparison(result);
+        await saveGeneratedResult({ ai_analysis: result });
       } else {
         setAiComparison(null);
         setError("Unable to generate AI comparison.");
@@ -168,8 +656,6 @@ function Compare() {
         "Failed to generate AI comparison:",
         err
       );
-
-      setAiComparison(null);
 
       setError(
         err.response?.data?.detail ||
@@ -185,9 +671,11 @@ function Compare() {
   // ============================================================
 
   const handleLiteratureReview = async () => {
-    if (selectedPaperIds.length < 2) {
+    if (generatingReview) return;
+
+    if (selectedPaperIds.length < MIN_PAPERS) {
       setError(
-        "Please select at least 2 papers to generate a literature review."
+        `Please select at least ${MIN_PAPERS} papers to generate a literature review.`
       );
       return;
     }
@@ -204,9 +692,9 @@ function Compare() {
       );
 
       if (response.data.success) {
-      setLiteratureReview(
-      response.data.literature_review
-      );
+      const result = response.data.literature_review;
+      setLiteratureReview(result);
+      await saveGeneratedResult({ literature_review: result });
      } else {
         setLiteratureReview(null);
         setError(
@@ -219,8 +707,6 @@ function Compare() {
         err
       );
 
-      setLiteratureReview(null);
-
       setError(
         err.response?.data?.detail ||
           "Unable to generate the literature review."
@@ -228,6 +714,64 @@ function Compare() {
     } finally {
       setGeneratingReview(false);
     }
+  };
+
+  // ============================================================
+  // Download handlers (per tab)
+  // ============================================================
+
+  const handleDownloadComparisonDocx = async () => {
+    if (!comparison) return;
+    await downloadAsDocx(
+      "Paper Comparison",
+      buildComparisonBlocks(comparison),
+      "paper-comparison.docx"
+    );
+  };
+
+  const handleDownloadComparisonPdf = async () => {
+    if (!comparison) return;
+    downloadAsPdf(
+      "Paper Comparison",
+      buildComparisonBlocks(comparison),
+      "paper-comparison.pdf"
+    );
+  };
+
+  const handleDownloadAiDocx = async () => {
+    if (!aiComparison) return;
+    await downloadAsDocx(
+      "AI Research Comparison",
+      buildAiBlocks(aiComparison),
+      "ai-comparison.docx"
+    );
+  };
+
+  const handleDownloadAiPdf = async () => {
+    if (!aiComparison) return;
+    downloadAsPdf(
+      "AI Research Comparison",
+      buildAiBlocks(aiComparison),
+      "ai-comparison.pdf"
+    );
+  };
+
+  const handleDownloadReviewDocx = async () => {
+    if (!literatureReview) return;
+    await downloadAsDocx(
+      "Literature Review",
+      buildReviewBlocks(literatureReview),
+      "literature-review.docx"
+    );
+  };
+
+  const handleDownloadReviewPdf = async () => {
+    if (!literatureReview) return;
+    downloadAsPdf(
+      "Literature Review",
+      buildReviewBlocks(literatureReview),
+      "literature-review.pdf"
+    );
   };
 
   // ============================================================
@@ -322,7 +866,7 @@ function Compare() {
           </h2>
 
           <p className="mt-3 max-w-2xl leading-7 text-slate-600">
-            Select two to four research papers to compare their
+            Select two to six research papers to compare their
             methodology, datasets, models, findings, limitations,
             and future work.
           </p>
@@ -398,13 +942,13 @@ function Compare() {
                   </h2>
 
                   <p className="mt-1 text-sm text-slate-500">
-                    Select 2 to 4 papers.
+                    Select 2 to 6 papers.
                   </p>
 
                 </div>
 
                 <div className="rounded-full bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700">
-                  {selectedPaperIds.length} / 4 selected
+                  {selectedPaperIds.length} / {MAX_PAPERS} selected
                 </div>
 
               </div>
@@ -423,7 +967,7 @@ function Compare() {
 
                   const disabled =
                     !selected &&
-                    selectedPaperIds.length >= 4;
+                    selectedPaperIds.length >= MAX_PAPERS;
 
                   return (
                     <button
@@ -514,7 +1058,7 @@ function Compare() {
                   type="button"
                   onClick={handleCompare}
                   disabled={
-                    selectedPaperIds.length < 2 ||
+                    selectedPaperIds.length < MIN_PAPERS ||
                     comparing
                   }
                   className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
@@ -545,163 +1089,270 @@ function Compare() {
 
 
             {/* ==================================================
-                Structured Comparison Results
+                Tabbed Results
             ================================================== */}
 
-            {comparison && comparison.length >= 2 && (
+            {selectedPaperIds.length >= MIN_PAPERS && (
               <>
 
-                <ComparisonResults
-                  papers={comparison}
-                />
-
+                {isLoadingSavedComparison && (
+                  <div className="rounded-lg border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-700 dark:border-indigo-900 dark:bg-indigo-500/10 dark:text-indigo-300">
+                    Loading saved comparison history...
+                  </div>
+                )}
 
                 {/* ==================================================
-                    AI Comparison Trigger
+                    Tab Bar
                 ================================================== */}
 
-                <section className="rounded-xl border border-indigo-100 bg-white p-6 shadow-sm">
+                <div className="flex flex-wrap gap-2 rounded-lg border border-slate-200 bg-white p-1.5 shadow-sm">
 
-                  <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("comparison")}
+                    className={`inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition ${
+                      activeTab === "comparison"
+                        ? "bg-indigo-600 text-white"
+                        : "text-slate-600 hover:bg-slate-100"
+                    }`}
+                  >
+                    <GitCompare size={16} />
+                    Paper Comparison
+                  </button>
 
-                    <div className="flex items-start gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("ai")}
+                    className={`inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition ${
+                      activeTab === "ai"
+                        ? "bg-indigo-600 text-white"
+                        : "text-slate-600 hover:bg-slate-100"
+                    }`}
+                  >
+                    <Sparkles size={16} />
+                    AI Analysis
+                  </button>
 
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
-                        <Sparkles size={20} />
-                      </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("review")}
+                    className={`inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition ${
+                      activeTab === "review"
+                        ? "bg-emerald-600 text-white"
+                        : "text-slate-600 hover:bg-slate-100"
+                    }`}
+                  >
+                    <BookOpen size={16} />
+                    Literature Review
+                  </button>
 
-                      <div>
-
-                        <h2 className="font-bold text-slate-900">
-                          AI Research Comparison
-                        </h2>
-
-                        <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
-                          Get an AI-generated interpretation of
-                          the similarities, differences, research
-                          gaps, and overall insights across the
-                          selected papers.
-                        </p>
-
-                      </div>
-
-                    </div>
-
-
+                  {savedComparisonId && (
                     <button
                       type="button"
-                      onClick={handleAIComparison}
-                      disabled={aiComparing}
-                      className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      onClick={deleteSavedComparison}
+                      className="ml-auto rounded-lg px-3 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-500/10"
                     >
-
-                      {aiComparing ? (
-                        <>
-                          <LoaderCircle
-                            size={17}
-                            className="animate-spin"
-                          />
-
-                          Generating...
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles size={17} />
-
-                          Generate AI Comparison
-                        </>
-                      )}
-
+                      Delete saved result
                     </button>
+                  )}
 
-                  </div>
-
-                </section>
-
-
-                {/* ==================================================
-                    AI Comparison Results
-                ================================================== */}
-
-                {aiComparison && (
-                  <AIComparisonResults
-                    comparison={aiComparison}
-                  />
-                )}
+                </div>
 
 
                 {/* ==================================================
-                    Literature Review Generator
+                    TAB 1: Paper Comparison
                 ================================================== */}
 
-                {aiComparison && (
-                  <section className="rounded-xl border border-emerald-100 bg-white p-6 shadow-sm">
-
-                    <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-
-                      <div className="flex items-start gap-3">
-
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
-                          <BookOpen size={20} />
-                        </div>
-
-                        <div>
-
-                          <h2 className="font-bold text-slate-900">
-                            Literature Review Generator
-                          </h2>
-
-                          <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
-                            Generate a structured literature review
-                            from the selected research papers using
-                            AI.
-                          </p>
-
-                        </div>
-
+                {activeTab === "comparison" && (
+                  comparison ? (
+                    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                      <div className="flex justify-end border-b border-slate-200 p-4 dark:border-slate-700 dark:bg-slate-900">
+                        <RegenerateButton onClick={handleCompare} loading={comparing} />
                       </div>
-
-
-                      <button
-                        type="button"
-                        onClick={handleLiteratureReview}
-                        disabled={generatingReview}
-                        className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-
-                        {generatingReview ? (
-                          <>
-                            <LoaderCircle
-                              size={17}
-                              className="animate-spin"
-                            />
-
-                            Generating Review...
-                          </>
-                        ) : (
-                          <>
-                            <BookOpen size={17} />
-
-                            Generate Literature Review
-                          </>
-                        )}
-
-                      </button>
-
-                    </div>
-
-                  </section>
+                      <ComparisonResults papers={comparison} />
+                      <DownloadButtons
+                        onDownloadDocx={handleDownloadComparisonDocx}
+                        onDownloadPdf={handleDownloadComparisonPdf}
+                      />
+                    </section>
+                  ) : (
+                    <GeneratePanel
+                      icon={GitCompare}
+                      title="Paper Comparison"
+                      description="Compare the selected papers in a structured research matrix."
+                      buttonLabel="Generate paper comparison"
+                      loading={comparing}
+                      onGenerate={handleCompare}
+                    />
+                  )
                 )}
 
 
                 {/* ==================================================
-                    Literature Review Results
+                    TAB 2: AI Analysis
                 ================================================== */}
 
-                {literatureReview && (
-                  <LiteratureReviewResults
-                    review={literatureReview}
-                  />
+                {activeTab === "ai" && (
+                  <>
+                    {!aiComparison && (
+                      <section className="rounded-xl border border-indigo-100 bg-white p-6 shadow-sm">
+
+                        <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+
+                          <div className="flex items-start gap-3">
+
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+                              <Sparkles size={20} />
+                            </div>
+
+                            <div>
+
+                              <h2 className="font-bold text-slate-900">
+                                AI Research Comparison
+                              </h2>
+
+                              <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+                                Get an AI-generated interpretation of
+                                the similarities, differences, research
+                                gaps, and overall insights across the
+                                selected papers.
+                              </p>
+
+                            </div>
+
+                          </div>
+
+
+                          <button
+                            type="button"
+                            onClick={handleAIComparison}
+                            disabled={aiComparing}
+                            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+
+                            {aiComparing ? (
+                              <>
+                                <LoaderCircle
+                                  size={17}
+                                  className="animate-spin"
+                                />
+
+                                Generating...
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles size={17} />
+
+                                Generate AI Comparison
+                              </>
+                            )}
+
+                          </button>
+
+                        </div>
+
+                      </section>
+                    )}
+
+                    {aiComparison && (
+                      <section className="overflow-hidden rounded-xl border border-indigo-100 bg-white shadow-sm">
+                        <div className="flex justify-end border-b border-slate-200 p-4 dark:border-slate-700 dark:bg-slate-900">
+                          <RegenerateButton onClick={handleAIComparison} loading={aiComparing} />
+                        </div>
+                        <AIComparisonResults comparison={aiComparison} />
+                        <DownloadButtons
+                          onDownloadDocx={handleDownloadAiDocx}
+                          onDownloadPdf={handleDownloadAiPdf}
+                        />
+                      </section>
+                    )}
+                  </>
+                )}
+
+
+                {/* ==================================================
+                    TAB 3: Literature Review
+                ================================================== */}
+
+                {activeTab === "review" && (
+                  <>
+                    {!literatureReview && (
+                      <section className="rounded-xl border border-emerald-100 bg-white p-6 shadow-sm">
+
+                        <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+
+                          <div className="flex items-start gap-3">
+
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                              <BookOpen size={20} />
+                            </div>
+
+                            <div>
+
+                              <h2 className="font-bold text-slate-900">
+                                Literature Review Generator
+                              </h2>
+
+                              <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+                                Generate a structured literature review
+                                from the selected research papers using
+                                AI.
+                              </p>
+
+                            </div>
+
+                          </div>
+
+
+                          <button
+                            type="button"
+                            onClick={handleLiteratureReview}
+                            disabled={generatingReview}
+                            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+
+                            {generatingReview ? (
+                              <>
+                                <LoaderCircle
+                                  size={17}
+                                  className="animate-spin"
+                                />
+
+                                Generating Review...
+                              </>
+                            ) : (
+                              <>
+                                <BookOpen size={17} />
+
+                                Generate Literature Review
+                              </>
+                            )}
+
+                          </button>
+
+                        </div>
+
+                      </section>
+                    )}
+
+                    {literatureReview && (
+                      <section className="overflow-hidden rounded-xl border border-emerald-100 bg-white shadow-sm">
+                        <div className="flex justify-end border-b border-slate-200 p-4 dark:border-slate-700 dark:bg-slate-900">
+                          <RegenerateButton onClick={handleLiteratureReview} loading={generatingReview} label="Regenerate review" />
+                        </div>
+                        <LiteratureReviewResults
+                          review={literatureReview}
+                          papers={papers.filter((paper) =>
+                            selectedPaperIds.includes(paper.id)
+                          )}
+                        />
+                        <DownloadButtons
+                          onDownloadDocx={handleDownloadReviewDocx}
+                          onDownloadPdf={handleDownloadReviewPdf}
+                        />
+                      </section>
+                    )}
+                  </>
                 )}
 
               </>
@@ -723,52 +1374,19 @@ function Compare() {
 
 function ComparisonResults({ papers }) {
 
-  const fields = [
-    {
-      key: "research_problem",
-      label: "Research Problem",
-    },
-    {
-      key: "key_contributions",
-      label: "Key Contributions",
-    },
-    {
-      key: "methodology",
-      label: "Methodology",
-    },
-    {
-      key: "dataset",
-      label: "Dataset",
-    },
-    {
-      key: "models_or_algorithms",
-      label: "Models / Algorithms",
-    },
-    {
-      key: "key_findings",
-      label: "Key Findings",
-    },
-    {
-      key: "limitations",
-      label: "Limitations",
-    },
-    {
-      key: "future_work",
-      label: "Future Work",
-    },
-  ];
+  const fields = COMPARISON_FIELDS;
 
 
   const formatValue = (value) => {
 
     if (value === null || value === undefined) {
-      return "Not available";
+      return "—";
     }
 
     if (Array.isArray(value)) {
 
       if (value.length === 0) {
-        return "Not available";
+        return "—";
       }
 
       return (
@@ -797,12 +1415,18 @@ function ComparisonResults({ papers }) {
       );
     }
 
-    return value;
+    if (typeof value === "object") {
+      return Object.keys(value).length
+        ? JSON.stringify(value)
+        : "—";
+    }
+
+    return String(value);
   };
 
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div>
 
       <div className="border-b border-slate-200 p-6">
 
@@ -915,7 +1539,7 @@ function ComparisonResults({ papers }) {
 
       </div>
 
-    </section>
+    </div>
   );
 }
 
@@ -982,86 +1606,11 @@ function AIComparisonResults({ comparison }) {
 
 
   if (typeof comparison === "string") {
-
-    return (
-      <section className="rounded-xl border border-indigo-100 bg-white shadow-sm">
-
-        <div className="border-b border-indigo-100 bg-indigo-50 p-6">
-
-          <div className="flex items-center gap-3">
-
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-600 text-white">
-              <Sparkles size={20} />
-            </div>
-
-            <div>
-
-              <h2 className="font-bold text-slate-900">
-                AI Research Insights
-              </h2>
-
-              <p className="mt-1 text-sm text-slate-500">
-                AI-generated analysis of the selected papers.
-              </p>
-
-            </div>
-
-          </div>
-
-        </div>
-
-
-        <div className="p-6">
-
-          <p className="whitespace-pre-wrap text-sm leading-7 text-slate-600">
-            {comparison}
-          </p>
-
-        </div>
-
-      </section>
-    );
+    return <SectionBlocks title="AI Research Insights" icon={Sparkles} blocks={buildAiBlocks(comparison)} tone="indigo" />;
   }
 
 
-  const sections = [
-    {
-      key: "overall_comparison",
-      label: "Overall Comparison",
-    },
-    {
-      key: "methodology_comparison",
-      label: "Methodology Comparison",
-    },
-    {
-      key: "dataset_comparison",
-      label: "Dataset Comparison",
-    },
-    {
-      key: "model_comparison",
-      label: "Model / Algorithm Comparison",
-    },
-    {
-      key: "findings_comparison",
-      label: "Findings Comparison",
-    },
-    {
-      key: "contributions_comparison",
-      label: "Contribution Comparison",
-    },
-    {
-      key: "limitations_comparison",
-      label: "Limitations Comparison",
-    },
-    {
-      key: "research_gaps",
-      label: "Research Gaps",
-    },
-    {
-      key: "conclusion",
-      label: "Conclusion",
-    },
-  ];
+  const sections = AI_COMPARISON_SECTIONS;
 
 
   const availableSections = sections.filter(
@@ -1073,7 +1622,7 @@ function AIComparisonResults({ comparison }) {
 
 
   return (
-    <section className="rounded-xl border border-indigo-100 bg-white shadow-sm">
+    <div>
 
       <div className="border-b border-indigo-100 bg-indigo-50 p-6">
 
@@ -1134,7 +1683,7 @@ function AIComparisonResults({ comparison }) {
 
       </div>
 
-    </section>
+    </div>
   );
 }
 
@@ -1143,7 +1692,7 @@ function AIComparisonResults({ comparison }) {
 // Literature Review Results
 // ============================================================
 
-function LiteratureReviewResults({ review }) {
+function LiteratureReviewResults({ review, papers = [] }) {
 
   // ----------------------------------------------------------
   // Safety check
@@ -1166,8 +1715,8 @@ function LiteratureReviewResults({ review }) {
       value === ""
     ) {
       return (
-        <p className="text-sm text-slate-400">
-          Not available.
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          —
         </p>
       );
     }
@@ -1178,8 +1727,8 @@ function LiteratureReviewResults({ review }) {
 
       if (value.length === 0) {
         return (
-          <p className="text-sm text-slate-400">
-            Not available.
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            —
           </p>
         );
       }
@@ -1236,49 +1785,7 @@ function LiteratureReviewResults({ review }) {
   // ============================================================
 
   if (typeof review === "string") {
-
-    return (
-      <section className="rounded-xl border border-emerald-100 bg-white shadow-sm">
-
-        {/* Header */}
-
-        <div className="border-b border-emerald-100 bg-emerald-50 p-6">
-
-          <div className="flex items-center gap-3">
-
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white">
-              <BookOpen size={20} />
-            </div>
-
-            <div>
-
-              <h2 className="font-bold text-slate-900">
-                AI Literature Review
-              </h2>
-
-              <p className="mt-1 text-sm text-slate-500">
-                Generated from the selected research papers.
-              </p>
-
-            </div>
-
-          </div>
-
-        </div>
-
-
-        {/* Plain Text */}
-
-        <div className="p-6">
-
-          <p className="whitespace-pre-wrap text-sm leading-7 text-slate-600">
-            {review}
-          </p>
-
-        </div>
-
-      </section>
-    );
+    return <SectionBlocks title="AI Literature Review" icon={BookOpen} blocks={buildReviewBlocks(review)} tone="emerald" />;
   }
 
 
@@ -1286,32 +1793,7 @@ function LiteratureReviewResults({ review }) {
   // Literature Review Sections
   // ============================================================
 
-  const sections = [
-    {
-      key: "introduction",
-      label: "Introduction",
-    },
-    {
-      key: "existing_research",
-      label: "Existing Research",
-    },
-    {
-      key: "methodology_comparison",
-      label: "Methodology Comparison",
-    },
-    {
-      key: "key_findings",
-      label: "Key Findings",
-    },
-    {
-      key: "research_gaps",
-      label: "Research Gaps",
-    },
-    {
-      key: "conclusion",
-      label: "Conclusion",
-    },
-  ];
+  const sections = LITERATURE_REVIEW_SECTIONS;
 
 
   // ============================================================
@@ -1325,13 +1807,22 @@ function LiteratureReviewResults({ review }) {
       review[section.key] !== ""
   );
 
+  const matrixFields = [
+    ["title", "Paper"],
+    ["research_problem", "Research focus"],
+    ["methodology", "Methodology"],
+    ["dataset", "Dataset"],
+    ["key_findings", "Main findings"],
+    ["limitations", "Limitations"],
+  ];
+
 
   // ============================================================
   // Structured Literature Review
   // ============================================================
 
   return (
-    <section className="rounded-xl border border-emerald-100 bg-white shadow-sm">
+    <div>
 
       {/* ======================================================
           Header
@@ -1368,6 +1859,25 @@ function LiteratureReviewResults({ review }) {
       ====================================================== */}
 
       <div className="p-6">
+
+        {papers.length > 0 && (
+          <div className="mb-8 overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
+            <table className="min-w-[900px] w-full border-collapse text-left">
+              <thead className="bg-emerald-50 dark:bg-emerald-500/10">
+                <tr>
+                  {matrixFields.map(([, label]) => <th key={label} className="border-b border-slate-200 p-3 text-xs font-bold uppercase tracking-wide text-slate-600 dark:border-slate-700 dark:text-slate-300">{label}</th>)}
+                  <th className="border-b border-slate-200 p-3 text-xs font-bold uppercase tracking-wide text-slate-600 dark:border-slate-700 dark:text-slate-300">Research gap</th>
+                </tr>
+              </thead>
+              <tbody>
+                {papers.map((paper) => <tr key={paper.id}>
+                  {matrixFields.map(([key]) => <td key={key} className="border-b border-slate-200 p-3 align-top text-sm leading-6 text-slate-600 dark:border-slate-700 dark:text-slate-300">{flattenValue(paper[key])}</td>)}
+                  <td className="border-b border-slate-200 p-3 align-top text-sm leading-6 text-slate-600 dark:border-slate-700 dark:text-slate-300">{flattenValue(review.research_gaps)}</td>
+                </tr>)}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {/* ====================================================
             Title
@@ -1431,7 +1941,7 @@ function LiteratureReviewResults({ review }) {
 
       </div>
 
-    </section>
+    </div>
   );
 }
 

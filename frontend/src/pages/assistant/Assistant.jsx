@@ -9,6 +9,8 @@ import {
   User,
   BookOpen,
   MessageCircle,
+  Plus,
+  Trash2,
 } from "lucide-react";
 
 import { Link } from "react-router-dom";
@@ -30,6 +32,12 @@ function Assistant() {
   const [papers, setPapers] = useState([]);
 
   const [selectedPaperId, setSelectedPaperId] = useState("");
+
+  const [conversations, setConversations] = useState([]);
+
+  const [selectedConversationId, setSelectedConversationId] = useState("");
+
+  const [conversationsLoading, setConversationsLoading] = useState(false);
 
   const [question, setQuestion] = useState("");
 
@@ -127,7 +135,195 @@ function Assistant() {
     // Clear previous conversation when changing paper
     setMessages([]);
 
+    setConversations([]);
+
+    setSelectedConversationId("");
+
     setError("");
+
+  };
+
+
+  // ============================================================
+  // Conversation History
+  // ============================================================
+
+  useEffect(() => {
+
+    if (!selectedPaperId) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadConversations = async () => {
+
+      try {
+
+        setConversationsLoading(true);
+
+        const response = await api.get("/api/conversations", {
+          params: { paper_id: selectedPaperId },
+        });
+
+        const availableConversations =
+          response.data.conversations || [];
+
+        if (cancelled) {
+          return;
+        }
+
+        setConversations(availableConversations);
+
+        if (availableConversations.length === 0) {
+          setSelectedConversationId("");
+          setMessages([]);
+          return;
+        }
+
+        const conversationId = String(
+          availableConversations[0].id
+        );
+
+        setSelectedConversationId(conversationId);
+
+        const detailResponse = await api.get(
+          `/api/conversations/${conversationId}`
+        );
+
+        if (!cancelled) {
+          setMessages(
+            detailResponse.data.conversation?.messages || []
+          );
+        }
+
+      } catch (err) {
+
+        if (!cancelled) {
+          setConversations([]);
+          setSelectedConversationId("");
+          setMessages([]);
+          setError(
+            err.response?.data?.detail ||
+              "Unable to load conversation history."
+          );
+        }
+
+      } finally {
+
+        if (!cancelled) {
+          setConversationsLoading(false);
+        }
+
+      }
+
+    };
+
+    loadConversations();
+
+    return () => {
+      cancelled = true;
+    };
+
+  }, [selectedPaperId]);
+
+
+  const loadConversation = async (conversationId) => {
+
+    try {
+
+      setError("");
+
+      const response = await api.get(
+        `/api/conversations/${conversationId}`
+      );
+
+      setSelectedConversationId(String(conversationId));
+      setMessages(response.data.conversation?.messages || []);
+
+    } catch (err) {
+
+      setError(
+        err.response?.data?.detail ||
+          "Unable to load this conversation."
+      );
+
+    }
+
+  };
+
+
+  const handleNewConversation = async () => {
+
+    if (!selectedPaperId) {
+      return;
+    }
+
+    try {
+
+      setError("");
+
+      const response = await api.post("/api/conversations", {
+        paper_id: selectedPaperId,
+      });
+
+      const conversation = response.data.conversation;
+
+      setConversations((previous) => [
+        conversation,
+        ...previous,
+      ]);
+      setSelectedConversationId(String(conversation.id));
+      setMessages([]);
+
+    } catch (err) {
+
+      setError(
+        err.response?.data?.detail ||
+          "Unable to create a conversation."
+      );
+
+    }
+
+  };
+
+
+  const handleDeleteConversation = async () => {
+
+    if (!selectedConversationId) {
+      return;
+    }
+
+    try {
+
+      setError("");
+
+      await api.delete(
+        `/api/conversations/${selectedConversationId}`
+      );
+
+      const remainingConversations = conversations.filter(
+        (conversation) =>
+          String(conversation.id) !== String(selectedConversationId)
+      );
+
+      setConversations(remainingConversations);
+
+      if (remainingConversations.length > 0) {
+        await loadConversation(remainingConversations[0].id);
+      } else {
+        setSelectedConversationId("");
+        setMessages([]);
+      }
+
+    } catch (err) {
+
+      setError(
+        err.response?.data?.detail ||
+          "Unable to delete this conversation."
+      );
+
+    }
 
   };
 
@@ -158,6 +354,14 @@ function Assistant() {
 
     }
 
+    if (!selectedConversationId) {
+
+      setError("Please start a conversation first.");
+
+      return;
+
+    }
+
 
     if (!trimmedQuestion) {
 
@@ -168,6 +372,16 @@ function Assistant() {
       return;
 
     }
+
+    const userMessage = {
+      id:
+        Date.now() +
+        "-user",
+
+      role: "user",
+
+      content: trimmedQuestion,
+    };
 
 
     try {
@@ -180,17 +394,6 @@ function Assistant() {
       // --------------------------------------------------------
       // Add user message immediately
       // --------------------------------------------------------
-
-      const userMessage = {
-        id:
-          Date.now() +
-          "-user",
-
-        role: "user",
-
-        content: trimmedQuestion,
-      };
-
 
       setMessages((previous) => [
         ...previous,
@@ -205,21 +408,10 @@ function Assistant() {
       // Call backend
       // --------------------------------------------------------
 
-     const response = await api.post(
-     "/api/assistant/ask",
-     {
-      paper_id: selectedPaperId,
-      question: trimmedQuestion,
-
-      conversation_history: [
-        ...messages,
-        userMessage,
-       ].map((message) => ({
-         role: message.role,
-         content: message.content,
-      })),
-     }
-    );
+      const response = await api.post(
+        `/api/conversations/${selectedConversationId}/messages`,
+        { content: trimmedQuestion }
+      );
 
 
       // --------------------------------------------------------
@@ -228,18 +420,15 @@ function Assistant() {
 
       if (response.data.success) {
 
-        const answer =
-          response.data.answer ||
-          response.data.response ||
-          response.data.result ||
-          response.data.message;
+        const answer = response.data.answer ||
+          response.data.assistant_message?.content;
 
 
         const aiMessage = {
 
           id:
-            Date.now() +
-            "-assistant",
+            response.data.assistant_message?.id ||
+              Date.now() + "-assistant",
 
           role: "assistant",
 
@@ -279,7 +468,7 @@ function Assistant() {
         previous.filter(
           (message) =>
             message.id !==
-            Date.now() + "-user"
+            userMessage.id
         )
       );
 
@@ -609,6 +798,100 @@ function Assistant() {
                     </div>
 
                   </div>
+
+                )}
+
+              </section>
+
+
+              {/* =================================================
+                  Conversation History
+              ================================================= */}
+
+              <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+
+                <div className="flex items-center justify-between gap-3">
+
+                  <div className="flex items-center gap-2">
+
+                    <MessageCircle
+                      size={17}
+                      className="text-indigo-600"
+                    />
+
+                    <h2 className="text-sm font-bold text-slate-900">
+                      Conversations
+                    </h2>
+
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleNewConversation}
+                    disabled={conversationsLoading}
+                    title="Start a new conversation"
+                    className="flex h-8 items-center gap-1.5 rounded-lg bg-indigo-600 px-2.5 text-xs font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Plus size={14} />
+                    <span>New</span>
+                  </button>
+
+                </div>
+
+                <div className="mt-4 space-y-2">
+
+                  {conversationsLoading ? (
+
+                    <p className="text-xs text-slate-500">
+                      Loading conversations...
+                    </p>
+
+                  ) : conversations.length === 0 ? (
+
+                    <p className="text-xs leading-5 text-slate-500">
+                      No saved conversations for this paper.
+                    </p>
+
+                  ) : (
+
+                    conversations.map((conversation) => (
+
+                      <button
+                        key={conversation.id}
+                        type="button"
+                        onClick={() => loadConversation(conversation.id)}
+                        className={`w-full rounded-lg border px-3 py-2.5 text-left text-xs transition ${
+                          String(conversation.id) ===
+                          String(selectedConversationId)
+                            ? "border-indigo-300 bg-indigo-50 text-indigo-700"
+                            : "border-slate-200 text-slate-600 hover:border-indigo-300 hover:bg-indigo-50"
+                        }`}
+                      >
+                        <span className="block truncate font-semibold">
+                          {conversation.title || "New conversation"}
+                        </span>
+                        <span className="mt-1 block text-[11px] text-slate-400">
+                          {conversation.messages?.length || 0} messages
+                        </span>
+                      </button>
+
+                    ))
+
+                  )}
+
+                </div>
+
+                {selectedConversationId && (
+
+                  <button
+                    type="button"
+                    onClick={handleDeleteConversation}
+                    title="Delete selected conversation"
+                    className="mt-4 flex items-center gap-2 text-xs font-semibold text-red-600 transition hover:text-red-700"
+                  >
+                    <Trash2 size={14} />
+                    Delete conversation
+                  </button>
 
                 )}
 

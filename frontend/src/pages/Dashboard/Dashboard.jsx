@@ -9,8 +9,8 @@ import {
 } from "lucide-react";
 
 import { Link } from "react-router-dom";
-import { useEffect, useState } from "react";
-import { useAuth } from "../../context/AuthContext";
+import { useCallback, useEffect, useState } from "react";
+import { useAuth } from "../../context/useAuth";
 
 import api from "../../services/api";
 
@@ -25,7 +25,7 @@ function Dashboard() {
   // Fetch Papers
   // ============================================================
 
-  const fetchPapers = async () => {
+  const fetchPapers = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
@@ -47,15 +47,25 @@ function Dashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // ============================================================
   // Load Data
   // ============================================================
 
   useEffect(() => {
-    fetchPapers();
-  }, []);
+    let cancelled = false;
+
+    Promise.resolve().then(() => {
+      if (!cancelled) {
+        fetchPapers();
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchPapers]);
 
   // ============================================================
   // Dashboard Statistics

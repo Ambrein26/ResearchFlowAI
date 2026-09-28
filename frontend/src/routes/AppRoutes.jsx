@@ -18,6 +18,7 @@ import Profile from "../pages/Profile/Profile";
 import Settings from "../pages/Settings/Settings";
 import Search from "../pages/Search/Search";
 import Assistant from "../pages/assistant/Assistant";
+import ResearchGapFinder from "../pages/ResearchGapFinder/ResearchGapFinder";
 
 
 
@@ -99,6 +100,14 @@ function AppRoutes() {
           <Route
             path="/compare"
             element={<Compare />}
+          />
+
+
+          {/* Research Gap Finder */}
+
+          <Route
+            path="/research-gaps"
+            element={<ResearchGapFinder />}
           />
 
 

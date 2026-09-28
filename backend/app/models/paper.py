@@ -4,6 +4,7 @@ from datetime import datetime
 
 from sqlalchemy import Column, DateTime, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.orm import relationship
 
 from app.db.database import Base
 
@@ -20,6 +21,12 @@ class Paper(Base):
         UUID(as_uuid=True),
         primary_key=True,
         default=uuid.uuid4
+    )
+
+    user_id = Column(
+        UUID(as_uuid=True),
+        nullable=True,
+        index=True
     )
 
     # ============================================================
@@ -122,4 +129,22 @@ class Paper(Base):
     created_at = Column(
         DateTime,
         default=datetime.utcnow
+    )
+
+    conversations = relationship(
+        "Conversation",
+        back_populates="paper",
+        cascade="all, delete-orphan"
+    )
+
+    notes = relationship(
+        "Note",
+        back_populates="paper",
+        cascade="all, delete-orphan"
+    )
+
+    bookmarks = relationship(
+        "Bookmark",
+        back_populates="paper",
+        cascade="all, delete-orphan"
     )

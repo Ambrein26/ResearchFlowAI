@@ -5,7 +5,10 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
+from app.core.auth import get_current_user_id
+from app.core.data import normalize_uuid
 from app.models.bookmark import Bookmark
+from app.models.paper import Paper
 
 
 router = APIRouter(
@@ -31,10 +34,23 @@ class BookmarkCreate(BaseModel):
 def create_bookmark(
     paper_id: str,
     bookmark_data: BookmarkCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user_id: str = Depends(get_current_user_id)
 ):
+    paper_id = normalize_uuid(paper_id, "Paper")
 
     try:
+
+        paper = (
+            db.query(Paper)
+            .filter(
+                Paper.id == paper_id,
+                Paper.user_id == current_user_id
+            )
+            .first()
+        )
+        if not paper:
+            raise HTTPException(status_code=404, detail="Paper not found.")
 
         bookmark = Bookmark(
             paper_id=paper_id,
@@ -58,13 +74,16 @@ def create_bookmark(
             }
         }
 
-    except Exception as error:
+    except HTTPException:
+        raise
+
+    except Exception:
 
         db.rollback()
 
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to create bookmark: {str(error)}"
+            detail="Failed to create bookmark."
         )
 
 
@@ -75,8 +94,21 @@ def create_bookmark(
 @router.get("/{paper_id}/bookmarks")
 def get_bookmarks(
     paper_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user_id: str = Depends(get_current_user_id)
 ):
+    paper_id = normalize_uuid(paper_id, "Paper")
+
+    paper = (
+        db.query(Paper)
+        .filter(
+            Paper.id == paper_id,
+            Paper.user_id == current_user_id
+        )
+        .first()
+    )
+    if not paper:
+        raise HTTPException(status_code=404, detail="Paper not found.")
 
     bookmarks = (
         db.query(Bookmark)
@@ -109,14 +141,19 @@ def get_bookmarks(
 def delete_bookmark(
     paper_id: str,
     bookmark_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user_id: str = Depends(get_current_user_id)
 ):
+    paper_id = normalize_uuid(paper_id, "Paper")
+    bookmark_id = normalize_uuid(bookmark_id, "Bookmark")
 
     bookmark = (
         db.query(Bookmark)
+        .join(Paper, Paper.id == Bookmark.paper_id)
         .filter(
             Bookmark.id == bookmark_id,
-            Bookmark.paper_id == paper_id
+            Bookmark.paper_id == paper_id,
+            Paper.user_id == current_user_id
         )
         .first()
     )
@@ -138,11 +175,11 @@ def delete_bookmark(
             "bookmark_id": bookmark_id
         }
 
-    except Exception as error:
+    except Exception:
 
         db.rollback()
 
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to delete bookmark: {str(error)}"
+            detail="Failed to delete bookmark."
         )

@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 
 import { Link, useParams } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import api from "../../services/api";
 
@@ -106,7 +106,7 @@ function Workspace() {
   // Fetch Notes
   // ============================================================
 
-  const fetchNotes = async () => {
+  const fetchNotes = useCallback(async () => {
     if (!paperId) return;
 
     try {
@@ -132,13 +132,13 @@ function Workspace() {
     } finally {
       setNotesLoading(false);
     }
-  };
+  }, [paperId]);
 
   // ============================================================
   // Fetch Bookmarks
   // ============================================================
 
-  const fetchBookmarks = async () => {
+  const fetchBookmarks = useCallback(async () => {
     if (!paperId) return;
 
     try {
@@ -164,16 +164,26 @@ function Workspace() {
     } finally {
       setBookmarksLoading(false);
     }
-  };
+  }, [paperId]);
 
   // ============================================================
   // Load Notes + Bookmarks
   // ============================================================
 
   useEffect(() => {
-    fetchNotes();
-    fetchBookmarks();
-  }, [paperId]);
+    let cancelled = false;
+
+    Promise.resolve().then(() => {
+      if (!cancelled) {
+        fetchNotes();
+        fetchBookmarks();
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchNotes, fetchBookmarks]);
 
   // ============================================================
   // Add Note

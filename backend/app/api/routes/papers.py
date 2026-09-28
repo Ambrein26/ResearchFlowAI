@@ -1,3 +1,5 @@
+import os
+
 from typing import List, Text
 
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
@@ -6,6 +8,9 @@ from sqlalchemy.orm import Session
 from app.services.pdf_service import extract_text_from_pdf
 from app.services.ai_service import analyze_research_paper
 from app.db.database import get_db
+from app.core.auth import get_current_user_id
+from app.core.data import normalize_uuid
+from app.core.errors import ai_service_exception
 
 from app.models.paper import Paper
 
@@ -16,6 +21,20 @@ router = APIRouter(
     tags=["Papers"]
 )
 
+MAX_PDF_SIZE_BYTES = int(
+    os.getenv("MAX_PDF_SIZE_BYTES", str(10 * 1024 * 1024))
+)
+
+
+async def read_pdf_upload(file: UploadFile) -> bytes:
+    file_bytes = await file.read(MAX_PDF_SIZE_BYTES + 1)
+    if len(file_bytes) > MAX_PDF_SIZE_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail="PDF files must be 10 MB or smaller."
+        )
+    return file_bytes
+
 
 # ============================================================
 # Extract PDF
@@ -23,7 +42,8 @@ router = APIRouter(
 
 @router.post("/extract")
 async def extract_pdf(
-    file: UploadFile = File(...)
+    file: UploadFile = File(...),
+    current_user_id: str = Depends(get_current_user_id)
 ):
 
     if file.content_type != "application/pdf":
@@ -32,7 +52,7 @@ async def extract_pdf(
             detail="Only PDF files are supported."
         )
 
-    file_bytes = await file.read()
+    file_bytes = await read_pdf_upload(file)
 
     if not file_bytes:
         raise HTTPException(
@@ -52,11 +72,14 @@ async def extract_pdf(
             "pages": result["pages"]
         }
 
+    except HTTPException:
+        raise
+
     except Exception as error:
 
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to process PDF: {str(error)}"
+            detail="Failed to process the PDF."
         )
 
 
@@ -67,7 +90,8 @@ async def extract_pdf(
 @router.post("/analyze")
 async def analyze_pdf(
     file: UploadFile = File(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user_id: str = Depends(get_current_user_id)
 ):
 
     if file.content_type != "application/pdf":
@@ -76,7 +100,7 @@ async def analyze_pdf(
             detail="Only PDF files are supported."
         )
 
-    file_bytes = await file.read()
+    file_bytes = await read_pdf_upload(file)
 
     if not file_bytes:
         raise HTTPException(
@@ -113,6 +137,7 @@ async def analyze_pdf(
         # ----------------------------------------------------
 
         paper = Paper(
+            user_id=current_user_id,
             filename=file.filename,
             title=analysis.title,
             authors=analysis.authors,
@@ -157,11 +182,7 @@ async def analyze_pdf(
     except Exception as error:
 
         db.rollback()
-
-        raise HTTPException(
-            status_code=500,
-            detail=f"AI analysis failed: {str(error)}"
-        )
+        raise ai_service_exception("Paper analysis", error)
 
 
 # ============================================================
@@ -170,11 +191,13 @@ async def analyze_pdf(
 
 @router.get("")
 def get_papers(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user_id: str = Depends(get_current_user_id)
 ):
 
     papers = (
         db.query(Paper)
+        .filter(Paper.user_id == current_user_id)
         .order_by(Paper.created_at.desc())
         .all()
     )
@@ -212,7 +235,8 @@ def get_papers(
 @router.get("/search")
 def search_papers(
     q: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user_id: str = Depends(get_current_user_id)
 ):
 
     # --------------------------------------------------------
@@ -238,6 +262,7 @@ def search_papers(
 
     papers = (
         db.query(Paper)
+        .filter(Paper.user_id == current_user_id)
         .order_by(Paper.created_at.desc())
         .all()
     )
@@ -342,12 +367,17 @@ def search_papers(
 @router.get("/{paper_id}")
 def get_paper(
     paper_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user_id: str = Depends(get_current_user_id)
 ):
+    paper_id = normalize_uuid(paper_id, "Paper")
 
     paper = (
         db.query(Paper)
-        .filter(Paper.id == paper_id)
+        .filter(
+            Paper.id == paper_id,
+            Paper.user_id == current_user_id
+        )
         .first()
     ) 
    
@@ -388,13 +418,16 @@ def get_paper(
 @router.delete("/{paper_id}")
 def delete_paper(
     paper_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user_id: str = Depends(get_current_user_id)
 ):
+    paper_id = normalize_uuid(paper_id, "Paper")
 
     try:
 
         paper = db.query(Paper).filter(
-            Paper.id == paper_id
+            Paper.id == paper_id,
+            Paper.user_id == current_user_id
         ).first()
 
         if not paper:
@@ -416,12 +449,12 @@ def delete_paper(
     except HTTPException:
         raise
 
-    except Exception as error:
+    except Exception:
 
         db.rollback()
 
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to delete paper: {str(error)}"
+            detail="Failed to delete paper."
         )
  

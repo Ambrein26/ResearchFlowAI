@@ -3,6 +3,9 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 
 from app.db.database import get_db
+from app.core.auth import get_current_user_id
+from app.core.data import normalize_uuid
+from app.core.errors import ai_service_exception
 from app.models.paper import Paper
 from app.services.ai_service import ask_paper_question
 
@@ -42,7 +45,8 @@ class AssistantRequest(BaseModel):
 @router.post("/ask")
 def ask_assistant(
     request: AssistantRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user_id: str = Depends(get_current_user_id)
 ):
 
     # --------------------------------------------------------
@@ -62,7 +66,10 @@ def ask_assistant(
 
     paper = (
         db.query(Paper)
-        .filter(Paper.id == request.paper_id)
+        .filter(
+            Paper.id == normalize_uuid(request.paper_id, "Paper"),
+            Paper.user_id == current_user_id
+        )
         .first()
     )
 
@@ -125,13 +132,4 @@ def ask_assistant(
         }
 
     except Exception as error:
-
-        print(
-            "AI Assistant Error:",
-            str(error)
-        )
-
-        raise HTTPException(
-            status_code=500,
-            detail=f"AI assistant failed: {str(error)}"
-        )
+        raise ai_service_exception("AI assistant", error)

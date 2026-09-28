@@ -5,6 +5,9 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
+from app.core.auth import get_current_user_id
+from app.core.data import normalize_uuid
+from app.core.errors import ai_service_exception
 from app.models.paper import Paper
 from app.services.ai_service import compare_research_papers
 
@@ -30,8 +33,13 @@ class CompareRequest(BaseModel):
 @router.post("")
 def compare_papers(
     request: CompareRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user_id: str = Depends(get_current_user_id)
 ):
+    request.paper_ids = [
+        normalize_uuid(paper_id, "Paper")
+        for paper_id in request.paper_ids
+    ]
 
     # --------------------------------------------------------
     # Validate number of papers
@@ -43,10 +51,10 @@ def compare_papers(
             detail="Please select at least 2 papers to compare."
         )
 
-    if len(request.paper_ids) > 4:
+    if len(request.paper_ids) > 6:
         raise HTTPException(
             status_code=400,
-            detail="You can compare a maximum of 4 papers at a time."
+            detail="You can compare a maximum of 6 papers at a time."
         )
 
     # --------------------------------------------------------
@@ -55,7 +63,10 @@ def compare_papers(
 
     papers = (
         db.query(Paper)
-        .filter(Paper.id.in_(request.paper_ids))
+        .filter(
+            Paper.id.in_(request.paper_ids),
+            Paper.user_id == current_user_id
+        )
         .all()
     )
 
@@ -114,6 +125,12 @@ def compare_papers(
                 "authors": paper.authors,
                 "page_count": paper.page_count,
 
+                "publication_year": None,
+
+                "abstract": paper.summary,
+
+                "keywords": paper.keywords,
+
                 "research_problem": paper.research_problem,
 
                 "key_contributions": paper.key_contributions,
@@ -146,8 +163,13 @@ def compare_papers(
 @router.post("/ai")
 def ai_compare_papers(
     request: CompareRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user_id: str = Depends(get_current_user_id)
 ):
+    request.paper_ids = [
+        normalize_uuid(paper_id, "Paper")
+        for paper_id in request.paper_ids
+    ]
 
     # --------------------------------------------------------
     # Validate number of papers
@@ -159,10 +181,10 @@ def ai_compare_papers(
             detail="At least 2 papers are required for AI comparison."
         )
 
-    if len(request.paper_ids) > 4:
+    if len(request.paper_ids) > 6:
         raise HTTPException(
             status_code=400,
-            detail="A maximum of 4 papers can be compared."
+            detail="A maximum of 6 papers can be compared."
         )
 
     try:
@@ -173,7 +195,10 @@ def ai_compare_papers(
 
         papers = (
             db.query(Paper)
-            .filter(Paper.id.in_(request.paper_ids))
+            .filter(
+                Paper.id.in_(request.paper_ids),
+                Paper.user_id == current_user_id
+            )
             .all()
         )
 
@@ -237,8 +262,4 @@ def ai_compare_papers(
         raise
 
     except Exception as error:
-
-        raise HTTPException(
-            status_code=500,
-            detail=f"AI comparison failed: {str(error)}"
-        )
+        raise ai_service_exception("AI comparison", error)

@@ -2,7 +2,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { User, Mail, Lock, ArrowRight, LoaderCircle } from "lucide-react";
 import { useState } from "react";
 
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../../context/useAuth";
 
 function Register() {
   const navigate = useNavigate();
@@ -15,7 +15,6 @@ function Register() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
 
   const handleRegister = async (event) => {
   event.preventDefault();
@@ -78,12 +77,6 @@ function Register() {
           {error && (
             <div className="mb-5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
               {error}
-            </div>
-          )}
-
-          {success && (
-            <div className="mb-5 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
-              {success}
             </div>
           )}
 

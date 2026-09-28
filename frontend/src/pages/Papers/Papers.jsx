@@ -11,7 +11,7 @@ import {
   X,
 } from "lucide-react";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import UploadPaperModal from "../../components/paper/UploadPaperModal";
@@ -34,7 +34,7 @@ function Papers() {
   // Fetch Papers
   // ============================================================
 
-  const fetchPapers = async () => {
+  const fetchPapers = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
@@ -56,15 +56,25 @@ function Papers() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // ============================================================
   // Load Papers When Page Opens
   // ============================================================
 
   useEffect(() => {
-    fetchPapers();
-  }, []);
+    let cancelled = false;
+
+    Promise.resolve().then(() => {
+      if (!cancelled) {
+        fetchPapers();
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchPapers]);
 
   // ============================================================
   // Search

@@ -2,8 +2,9 @@ import uuid
 
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Text
+from sqlalchemy import Column, DateTime, ForeignKey, Text
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 
 from app.db.database import Base
 
@@ -20,8 +21,11 @@ class Bookmark(Base):
 
     paper_id = Column(
         UUID(as_uuid=True),
+        ForeignKey("papers.id", ondelete="CASCADE"),
         nullable=False
     )
+
+    paper = relationship("Paper", back_populates="bookmarks")
 
     title = Column(
         Text,

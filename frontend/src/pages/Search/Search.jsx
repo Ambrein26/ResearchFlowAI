@@ -497,8 +497,7 @@ function Search() {
                             {/* Open Paper */}
 
                             {paperId && (
-                              <Link
-                                to={`/papers/${paperId}`}
+                              <Link to={`/analysis/${paper.id}`}
                                 className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
                               >
                                 Open Paper
